@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build && cp -r public .next/standalone/ && cp -r .next/static .next/standalone/.next/static",
+    "build": "next build && cpx \"public/**/*\" .next/standalone/public && cpx \".next/static/**/*\" .next/standalone/.next/static",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
@@ -23,6 +23,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "cpx": "^1.5.0",
     "eslint": "^9",
     "eslint-config-next": "16.2.3",
     "tailwindcss": "^4",

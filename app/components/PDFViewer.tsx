@@ -5,8 +5,8 @@ import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 import { DrawingColor, DrawingTool, DrawingToolbar } from './DrawingToolbar';
 import { OnScreenKeyboard } from './OnScreenKeyboard';
 
-if (typeof window !== 'undefined' && !GlobalWorkerOptions.workerSrc) {
-  GlobalWorkerOptions.workerSrc = '/pdf.worker.mjs';
+if (typeof window !== 'undefined') {
+  GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
 }
 
 interface PDFViewerProps {

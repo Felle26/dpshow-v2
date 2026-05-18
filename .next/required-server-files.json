@@ -105,7 +105,7 @@
         "transform": "lodash/{{member}}"
       }
     },
-    "outputFileTracingRoot": "D:\\Projekte\\dienstplan_Programme\\dpshow",
+    "outputFileTracingRoot": "D:\\dpshow-v2",
     "allowedDevOrigins": [
       "http://192.168.178.170:3000"
     ],
@@ -308,11 +308,11 @@
     "bundlePagesRouterDependencies": false,
     "configFileName": "next.config.ts",
     "turbopack": {
-      "root": "D:\\Projekte\\dienstplan_Programme\\dpshow"
+      "root": "D:\\dpshow-v2"
     },
     "distDirRoot": ".next"
   },
-  "appDir": "D:\\Projekte\\dienstplan_Programme\\dpshow",
+  "appDir": "D:\\dpshow-v2",
   "relativeAppDir": "",
   "files": [
     ".next\\routes-manifest.json",
