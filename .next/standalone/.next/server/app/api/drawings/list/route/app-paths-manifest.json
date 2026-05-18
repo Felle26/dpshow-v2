@@ -1,0 +1,3 @@
+{
+  "/api/drawings/list/route": "app/api/drawings/list/route.js"
+}
