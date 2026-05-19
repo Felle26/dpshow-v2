@@ -49,6 +49,7 @@ const LEAGUES: LeagueDefinition[] = [
   { key: 'bl1', name: '1. Bundesliga' },
   { key: 'bl2', name: '2. Bundesliga' },
   { key: 'del', name: 'Eishockey (DEL)' },
+  { key: 'del2', name: 'Eishockey (DEL2)' },
 ];
 
 function getSeasonForLeague(): number {
@@ -196,8 +197,16 @@ async function fetchLeagueData(league: LeagueDefinition, season: number): Promis
   };
 }
 
+const CACHE_TTL_MS = 60 * 60 * 1000; // 60 Minuten
+
+let cachedSports: { data: object; expiresAt: number } | null = null;
+
 export async function GET() {
   try {
+    if (cachedSports && Date.now() < cachedSports.expiresAt) {
+      return NextResponse.json(cachedSports.data);
+    }
+
     const season = getSeasonForLeague();
     const switchMinutes = await getSportsSwitchMinutes();
 
@@ -217,13 +226,17 @@ export async function GET() {
       })
     );
 
-    return NextResponse.json({
+    const payload = {
       source: 'OpenLigaDB',
       season,
       switchMinutes,
       updatedAt: new Date().toISOString(),
       leagues,
-    });
+    };
+
+    cachedSports = { data: payload, expiresAt: Date.now() + CACHE_TTL_MS };
+
+    return NextResponse.json(payload);
   } catch (error) {
     console.error('Fehler beim Laden der Sportdaten:', error);
     return NextResponse.json(
