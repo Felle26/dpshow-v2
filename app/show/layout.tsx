@@ -6,7 +6,7 @@ export default function ShowLayout({
   children: ReactNode;
 }) {
   return (
-    <div className="show-layout">
+    <div className="show-layout h-full">
       {children}
     </div>
   );

@@ -6,7 +6,7 @@ export default function AdminLayout({
   children: ReactNode;
 }) {
   return (
-    <div className="admin-layout">
+    <div className="admin-layout h-full">
       {children}
     </div>
   );

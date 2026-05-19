@@ -382,6 +382,19 @@ export function PDFViewer({ pdfUrl, pdfName, onDrawingSaved }: PDFViewerProps) {
     }
   }, [currentTool, editingEnabled]);
 
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    if (editingEnabled) {
+      el.style.touchAction = 'none';
+    } else {
+      el.style.touchAction = '';
+    }
+    return () => {
+      el.style.touchAction = '';
+    };
+  }, [editingEnabled]);
+
   const handleUnlockClick = () => {
     if (editingEnabled) {
       setEditingEnabled(false);
