@@ -2,11 +2,10 @@
   "/admin/page": "app/admin/page.js",
   "/api/drawings/list/route": "app/api/drawings/list/route.js",
   "/api/edit-password/route": "app/api/edit-password/route.js",
-  "/api/files/[fileName]/route": "app/api/files/[fileName]/route.js",
   "/api/files/route": "app/api/files/route.js",
   "/api/screensaver-config/route": "app/api/screensaver-config/route.js",
   "/api/upload-pdf/route": "app/api/upload-pdf/route.js",
   "/api/upload-timestamp/route": "app/api/upload-timestamp/route.js",
-  "/page": "app/page.js",
-  "/show/page": "app/show/page.js"
+  "/bereiche/page": "app/bereiche/page.js",
+  "/page": "app/page.js"
 }

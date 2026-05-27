@@ -25,6 +25,13 @@ export default function Home() {
           >
             ⚙️ Admin Bereich
           </Link>
+
+          <Link
+            href="/bereiche"
+            className="px-8 py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg transition-colors"
+          >
+            🗂️ Bereiche
+          </Link>
         </div>
       </div>
     </div>

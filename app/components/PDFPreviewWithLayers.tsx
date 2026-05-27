@@ -20,6 +20,7 @@ interface PDFPreviewWithLayersProps {
   pdfUrl: string;
   pdfName: string;
   drawings?: Drawing[];
+  showViewModeControls?: boolean;
 }
 
 type ViewMode = 'single' | 'all';
@@ -193,6 +194,7 @@ export function PDFPreviewWithLayers({
   pdfUrl,
   pdfName,
   drawings = [],
+  showViewModeControls = true,
 }: PDFPreviewWithLayersProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const pageElementMapRef = useRef<Record<number, HTMLDivElement | null>>({});
@@ -201,10 +203,15 @@ export function PDFPreviewWithLayers({
   const [activePage, setActivePage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [sortedDrawings, setSortedDrawings] = useState<Drawing[]>([]);
   const [zoomFactor, setZoomFactor] = useState(1);
   const [resizeVersion, setResizeVersion] = useState(0);
   const [viewMode, setViewMode] = useState<ViewMode>('all');
+
+  const sortedDrawings = React.useMemo(() => {
+    return [...drawings].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  }, [drawings]);
 
   useEffect(() => {
     const loadPdf = async () => {
@@ -223,13 +230,6 @@ export function PDFPreviewWithLayers({
 
     loadPdf();
   }, [pdfUrl]);
-
-  useEffect(() => {
-    const sorted = [...drawings].sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
-    setSortedDrawings(sorted);
-  }, [drawings]);
 
   useEffect(() => {
     const onResize = () => {
@@ -346,26 +346,30 @@ export function PDFPreviewWithLayers({
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-300 bg-white px-4 py-3 dark:border-gray-700 dark:bg-slate-900">
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => handleViewModeChange('single')}
-            className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
-              viewMode === 'single'
-                ? 'bg-blue-500 text-white'
-                : 'bg-gray-200 text-gray-900 hover:bg-gray-300 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600'
-            }`}
-          >
-            Einzelseite
-          </button>
-          <button
-            onClick={() => handleViewModeChange('all')}
-            className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
-              viewMode === 'all'
-                ? 'bg-blue-500 text-white'
-                : 'bg-gray-200 text-gray-900 hover:bg-gray-300 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600'
-            }`}
-          >
-            Alle Seiten
-          </button>
+          {showViewModeControls && (
+            <>
+              <button
+                onClick={() => handleViewModeChange('single')}
+                className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+                  viewMode === 'single'
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-200 text-gray-900 hover:bg-gray-300 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600'
+                }`}
+              >
+                Einzelseite
+              </button>
+              <button
+                onClick={() => handleViewModeChange('all')}
+                className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+                  viewMode === 'all'
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-200 text-gray-900 hover:bg-gray-300 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600'
+                }`}
+              >
+                Alle Seiten
+              </button>
+            </>
+          )}
           <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
             Fokus: Seite {activePage} / {Math.max(totalPages, 1)}
           </span>
@@ -420,7 +424,7 @@ export function PDFPreviewWithLayers({
         )}
       </div>
 
-      {totalPages > 0 && viewMode === 'single' && (
+      {showViewModeControls && totalPages > 0 && viewMode === 'single' && (
         <div className="flex items-center justify-between gap-4 border-t border-gray-300 bg-white p-4 dark:border-gray-700 dark:bg-slate-900">
           <div className="flex gap-4">
             <button

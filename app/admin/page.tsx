@@ -89,11 +89,12 @@ export default function AdminPage() {
   const [deletingDrawing, setDeletingDrawing] = useState<string | null>(null);
   const [deletingPdf, setDeletingPdf] = useState<string | null>(null);
   const [deletingGroup, setDeletingGroup] = useState<string | null>(null);
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   const [selectedPdfForPreview, setSelectedPdfForPreview] = useState<string | null>(null);
   const [editPassword, setEditPassword] = useState('');
   const [isPasswordSet, setIsPasswordSet] = useState(false);
   const [passwordStatus, setPasswordStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  const [activeTab, setActiveTab] = useState<'dienstplan' | 'optionen'>('dienstplan');
+  const [activeTab, setActiveTab] = useState<'upload' | 'dienstplaene' | 'optionen'>('upload');
   const [screensaverTimeout, setScreensaverTimeout] = useState(5);
   const [sportsSwitchMinutes, setSportsSwitchMinutes] = useState(5);
   const [weatherLocationName, setWeatherLocationName] = useState('Deutschland');
@@ -248,6 +249,16 @@ export default function AdminPage() {
 
     return [...groups.entries()].map(([key, value]) => ({ key, ...value }));
   }, [sortedFiles, fileMeta]);
+
+  useEffect(() => {
+    setExpandedGroups((prev) => {
+      const next: Record<string, boolean> = {};
+      for (const group of groupedFiles) {
+        next[group.key] = prev[group.key] ?? true;
+      }
+      return next;
+    });
+  }, [groupedFiles]);
 
   const handleSavePassword = async () => {
     if (editPassword && !/^\d+$/.test(editPassword)) {
@@ -522,6 +533,13 @@ export default function AdminPage() {
     }
   };
 
+  const toggleGroup = (groupKey: string) => {
+    setExpandedGroups((prev) => ({
+      ...prev,
+      [groupKey]: !(prev[groupKey] ?? true),
+    }));
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-linear-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
       <header className="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-gray-800 shadow-sm">
@@ -543,18 +561,28 @@ export default function AdminPage() {
         </div>
       </header>
 
-      <main className="flex-1 p-6 flex gap-6 overflow-hidden flex-col">
+      <main className="flex-1 p-6 flex gap-6 flex-col overflow-y-auto min-h-0">
         {/* Tab Navigation */}
         <div className="flex gap-2 border-b border-gray-300 dark:border-gray-700">
           <button
-            onClick={() => setActiveTab('dienstplan')}
+            onClick={() => setActiveTab('upload')}
             className={`px-4 py-3 font-semibold border-b-2 transition-colors ${
-              activeTab === 'dienstplan'
+              activeTab === 'upload'
                 ? 'border-blue-500 text-blue-600 dark:text-blue-400'
                 : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
             }`}
           >
-            📋 Dienstpläne
+            ⬆️ Upload
+          </button>
+          <button
+            onClick={() => setActiveTab('dienstplaene')}
+            className={`px-4 py-3 font-semibold border-b-2 transition-colors ${
+              activeTab === 'dienstplaene'
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+            }`}
+          >
+            📋 Angezeigte Dienstpläne
           </button>
           <button
             onClick={() => setActiveTab('optionen')}
@@ -569,20 +597,23 @@ export default function AdminPage() {
         </div>
 
         {/* Tab Content Container */}
-        <div className="flex-1 overflow-hidden flex gap-6">
-          {/* Dienstplan Tab */}
-          {activeTab === 'dienstplan' && (
-            <div className="flex-1 overflow-y-auto flex flex-col gap-6">
-              {/* Upload Section */}
+        <div className="flex-1 flex gap-6 min-h-0">
+          {/* Upload Tab */}
+          {activeTab === 'upload' && (
+            <div className="w-full">
               <section className="bg-white dark:bg-slate-900 rounded-lg shadow-lg p-6">
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
                   📄 PDF hochladen
                 </h2>
                 <PDFUpload onUploadComplete={() => loadData()} />
               </section>
+            </div>
+          )}
 
-              {/* Files Section */}
-              <section className="bg-white dark:bg-slate-900 rounded-lg shadow-lg p-6 flex-1 overflow-y-auto">
+          {/* Angezeigte Dienstpläne Tab */}
+          {activeTab === 'dienstplaene' && (
+            <div className="flex-1 flex gap-6 min-h-0">
+              <section className="flex-1 bg-white dark:bg-slate-900 rounded-lg shadow-lg p-6">
             <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
               📋 Hochgeladene Dienstpläne
             </h2>
@@ -600,13 +631,23 @@ export default function AdminPage() {
                   >
                     {/* Group Header */}
                     <div className="bg-linear-to-r from-blue-100 to-blue-50 dark:from-slate-700 dark:to-slate-800 px-4 py-3 border-b border-gray-300 dark:border-gray-700 flex items-center justify-between gap-4 flex-wrap">
-                      <div>
-                        <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                          {group.label}
-                        </h3>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          {group.files.length} PDF{group.files.length !== 1 ? 's' : ''}
-                        </p>
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => toggleGroup(group.key)}
+                          className="h-8 w-8 rounded-lg bg-white/80 hover:bg-white dark:bg-slate-800 dark:hover:bg-slate-700 text-gray-900 dark:text-white font-bold transition-colors"
+                          aria-expanded={expandedGroups[group.key] ?? true}
+                          aria-label={(expandedGroups[group.key] ?? true) ? 'Gruppe einklappen' : 'Gruppe ausklappen'}
+                        >
+                          {(expandedGroups[group.key] ?? true) ? '▾' : '▸'}
+                        </button>
+                        <div>
+                          <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                            {group.label}
+                          </h3>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            {group.files.length} PDF{group.files.length !== 1 ? 's' : ''}
+                          </p>
+                        </div>
                       </div>
                       <button
                         onClick={() => handleDeleteGroup(group)}
@@ -618,8 +659,9 @@ export default function AdminPage() {
                     </div>
 
                     {/* Group Content */}
-                    <div className="p-4 space-y-3">
-                      {group.files.map((file) => (
+                    {(expandedGroups[group.key] ?? true) && (
+                      <div className="p-4 space-y-3">
+                        {group.files.map((file) => (
                         <div
                           key={file.name}
                           className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-slate-900"
@@ -701,19 +743,30 @@ export default function AdminPage() {
                             </div>
                           )}
                         </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
             )}
               </section>
+
+              {selectedPdfForPreview && (
+                <div className="flex-1 bg-white dark:bg-slate-900 rounded-lg shadow-lg overflow-hidden flex flex-col border-2 border-blue-500 dark:border-blue-600 min-h-120">
+                  <PDFPreviewWithLayers
+                    pdfUrl={`/dienstplan-uploads/${encodeURIComponent(selectedPdfForPreview)}`}
+                    pdfName={selectedPdfForPreview}
+                    drawings={drawings[selectedPdfForPreview] || []}
+                  />
+                </div>
+              )}
             </div>
           )}
 
           {/* Optionen Tab */}
           {activeTab === 'optionen' && (
-            <div className="flex-1 overflow-y-auto flex flex-col gap-6">
+            <div className="flex-1 flex flex-col gap-6">
               {/* 1. Einschaltzeit */}
               <section className="bg-white dark:bg-slate-900 rounded-lg shadow-lg p-6">
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
@@ -860,17 +913,6 @@ export default function AdminPage() {
                   )}
                 </div>
               </section>
-            </div>
-          )}
-
-          {/* Right Panel: PDF Preview with Layers (nur im Dienstplan-Tab) */}
-          {activeTab === 'dienstplan' && selectedPdfForPreview && (
-            <div className="flex-1 bg-white dark:bg-slate-900 rounded-lg shadow-lg overflow-hidden flex flex-col border-2 border-blue-500 dark:border-blue-600">
-              <PDFPreviewWithLayers
-                pdfUrl={`/dienstplan-uploads/${encodeURIComponent(selectedPdfForPreview)}`}
-                pdfName={selectedPdfForPreview}
-                drawings={drawings[selectedPdfForPreview] || []}
-              />
             </div>
           )}
         </div>
