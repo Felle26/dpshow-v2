@@ -47,86 +47,12 @@ function matchesNamedGroup(fileName: string, group: NamedGroup): boolean {
   return pattern.test(normalized);
 }
 
-function parseNameDateTimestamp(fileName: string): number | null {
-  const base = fileName.replace(/\.pdf$/i, '');
-
-  const explicitDates = [...base.matchAll(/\b(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{2}|\d{4})\b/g)];
-  if (explicitDates.length > 0) {
-    const timestamps = explicitDates
-      .map((match) => {
-        const day = Number.parseInt(match[1], 10);
-        const month = Number.parseInt(match[2], 10);
-        const yearRaw = Number.parseInt(match[3], 10);
-        const year = match[3].length === 2 ? 2000 + yearRaw : yearRaw;
-
-        const date = new Date(year, month - 1, day);
-        const valid =
-          date.getFullYear() === year &&
-          date.getMonth() === month - 1 &&
-          date.getDate() === day;
-
-        return valid ? date.getTime() : Number.NaN;
-      })
-      .filter((value) => Number.isFinite(value));
-
-    if (timestamps.length > 0) {
-      return Math.max(...timestamps);
-    }
-  }
-
-  const kwMatch = base.match(/\bkw\s*([0-5]?\d)(?:\D+(20\d{2}|\d{2}))?/i);
-  if (kwMatch) {
-    const week = Number.parseInt(kwMatch[1], 10);
-    const yearPart = kwMatch[2];
-    if (Number.isFinite(week) && week >= 1 && week <= 53 && yearPart) {
-      const parsedYear = Number.parseInt(yearPart, 10);
-      const year = yearPart.length === 2 ? 2000 + parsedYear : parsedYear;
-
-      const jan4 = new Date(Date.UTC(year, 0, 4));
-      const jan4Day = jan4.getUTCDay() || 7;
-      const week1Monday = new Date(jan4);
-      week1Monday.setUTCDate(jan4.getUTCDate() - jan4Day + 1);
-
-      const targetMonday = new Date(week1Monday);
-      targetMonday.setUTCDate(week1Monday.getUTCDate() + (week - 1) * 7);
-      return targetMonday.getTime();
-    }
-  }
-
-  return null;
-}
-
-function parseKwFromFileName(fileName: string, fallbackYear: number): { week: number; year: number } | null {
-  const base = fileName.replace(/\.pdf$/i, '');
-  const kwMatch = base.match(/\bkw\W*([0-5]?\d)(?:\D+(20\d{2}|\d{2}))?/i);
-  if (!kwMatch) {
-    return null;
-  }
-
-  const week = Number.parseInt(kwMatch[1], 10);
-  if (!Number.isFinite(week) || week < 1 || week > 53) {
-    return null;
-  }
-
-  const yearPart = kwMatch[2];
-  if (!yearPart) {
-    return { week, year: fallbackYear };
-  }
-
-  const parsedYear = Number.parseInt(yearPart, 10);
-  const year = yearPart.length === 2 ? 2000 + parsedYear : parsedYear;
-  if (!Number.isFinite(year)) {
-    return { week, year: fallbackYear };
-  }
-
-  return { week, year };
-}
-
 export default function BereichePage() {
   const [files, setFiles] = useState<PDFFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeGroupKey, setActiveGroupKey] = useState<string>(NAMED_GROUPS[0]?.key ?? 'kueche');
+  const [sortDirection, setSortDirection] = useState<'desc' | 'asc'>('desc');
 
   useEffect(() => {
     let ignore = false;
@@ -167,56 +93,16 @@ export default function BereichePage() {
   }, []);
 
   const grouped = useMemo(() => {
-    const sorted = [...files].sort((a, b) => {
-      const dateA = parseNameDateTimestamp(a.name) ?? new Date(a.uploadDate).getTime();
-      const dateB = parseNameDateTimestamp(b.name) ?? new Date(b.uploadDate).getTime();
-
-      if (dateA !== dateB) {
-        return dateB - dateA;
-      }
-
-      return b.name.localeCompare(a.name, 'de', { numeric: true, sensitivity: 'base' });
+    const sortedByName = [...files].sort((a, b) => {
+      const comparison = a.name.localeCompare(b.name, 'de', { numeric: true, sensitivity: 'base' });
+      return sortDirection === 'asc' ? comparison : -comparison;
     });
 
-    return NAMED_GROUPS.map((group) => {
-      const groupFiles = sorted.filter((file) => matchesNamedGroup(file.name, group));
-
-      if (group.key !== 'belege') {
-        return {
-          ...group,
-          files: groupFiles,
-        };
-      }
-
-      const belegeSorted = [...groupFiles].sort((a, b) => {
-        const fallbackYearA = new Date(a.uploadDate).getFullYear();
-        const fallbackYearB = new Date(b.uploadDate).getFullYear();
-        const kwA = parseKwFromFileName(a.name, fallbackYearA);
-        const kwB = parseKwFromFileName(b.name, fallbackYearB);
-
-        if (kwA && kwB) {
-          if (kwA.year !== kwB.year) {
-            return kwB.year - kwA.year;
-          }
-
-          if (kwA.week !== kwB.week) {
-            return kwB.week - kwA.week;
-          }
-        } else if (kwA) {
-          return -1;
-        } else if (kwB) {
-          return 1;
-        }
-
-        return b.name.localeCompare(a.name, 'de', { numeric: true, sensitivity: 'base' });
-      });
-
-      return {
-        ...group,
-        files: belegeSorted,
-      };
-    });
-  }, [files]);
+    return NAMED_GROUPS.map((group) => ({
+      ...group,
+      files: sortedByName.filter((file) => matchesNamedGroup(file.name, group)),
+    }));
+  }, [files, sortDirection]);
 
   useEffect(() => {
     if (!grouped.some((group) => group.key === activeGroupKey)) {
@@ -276,20 +162,48 @@ export default function BereichePage() {
         {!loading && !error && (
           <section className="rounded-xl border border-slate-300 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
             <div className="border-b border-slate-200 px-4 py-3 dark:border-slate-700">
-              <div className="flex flex-wrap gap-2">
-                {grouped.map((group) => (
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap gap-2">
+                  {grouped.map((group) => (
+                    <button
+                      key={group.key}
+                      onClick={() => setActiveGroupKey(group.key)}
+                      className={`rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
+                        activeGroup?.key === group.key
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-slate-200 text-slate-800 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      {group.label} ({group.files.length})
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    Sortierung
+                  </span>
                   <button
-                    key={group.key}
-                    onClick={() => setActiveGroupKey(group.key)}
-                    className={`rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
-                      activeGroup?.key === group.key
-                        ? 'bg-emerald-600 text-white'
+                    onClick={() => setSortDirection('desc')}
+                    className={`rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${
+                      sortDirection === 'desc'
+                        ? 'bg-blue-600 text-white'
                         : 'bg-slate-200 text-slate-800 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700'
                     }`}
                   >
-                    {group.label} ({group.files.length})
+                    Z-A
                   </button>
-                ))}
+                  <button
+                    onClick={() => setSortDirection('asc')}
+                    className={`rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${
+                      sortDirection === 'asc'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-slate-200 text-slate-800 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    A-Z
+                  </button>
+                </div>
               </div>
             </div>
 
