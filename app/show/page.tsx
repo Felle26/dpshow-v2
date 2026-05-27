@@ -139,7 +139,7 @@ export default function ShowPage() {
 
   return (
     <div
-      className="flex flex-col h-screen bg-slate-100 dark:bg-slate-950"
+      className="flex flex-col h-full bg-slate-100 dark:bg-slate-950"
       style={{
         transform: `translate3d(${currentPixelShift.x}px, ${currentPixelShift.y}px, 0) scale(1.01)`,
         transformOrigin: 'center center',

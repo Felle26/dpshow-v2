@@ -80,8 +80,16 @@ async function getWeatherConfig(): Promise<ScreensaverConfig> {
   }
 }
 
+const CACHE_TTL_MS = 10 * 60 * 1000; // 10 Minuten
+
+let cachedWeather: { data: object; expiresAt: number } | null = null;
+
 export async function GET() {
   try {
+    if (cachedWeather && Date.now() < cachedWeather.expiresAt) {
+      return NextResponse.json(cachedWeather.data);
+    }
+
     const weatherConfig = await getWeatherConfig();
 
     const url = new URL('https://api.open-meteo.com/v1/forecast');
@@ -119,7 +127,7 @@ export async function GET() {
       };
     }).filter((day) => day.date.length > 0);
 
-    return NextResponse.json({
+    const payload = {
       source: 'DWD ICON via Open-Meteo',
       location: weatherConfig.weatherLocationName,
       temperatureC: Number(current.temperature_2m ?? 0),
@@ -128,7 +136,11 @@ export async function GET() {
       weatherText: WEATHER_CODE_LABELS[weatherCode] ?? 'Unbekannt',
       updatedAt: current.time ?? new Date().toISOString(),
       forecast,
-    });
+    };
+
+    cachedWeather = { data: payload, expiresAt: Date.now() + CACHE_TTL_MS };
+
+    return NextResponse.json(payload);
   } catch (error) {
     console.error('Fehler beim Laden der Wetterdaten:', error);
 

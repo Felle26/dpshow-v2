@@ -3,8 +3,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 
-if (typeof window !== 'undefined' && !GlobalWorkerOptions.workerSrc) {
-  GlobalWorkerOptions.workerSrc = '/pdf.worker.mjs';
+if (typeof window !== 'undefined') {
+  GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
 }
 
 interface PDFFile {
@@ -337,7 +337,7 @@ export function PDFThumbnailStrip({ onPDFSelect, selectedPdfName, onNewFilesDete
 
       <div
         ref={scrollRef}
-        className="snap-x snap-mandatory overflow-x-auto px-10 py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="snap-x snap-mandatory overflow-x-auto px-10 py-1 [scrollbar-none] [&::-webkit-scrollbar]:hidden"
       >
         <div className="flex min-w-max gap-4">
           {groupedFiles.map((group) => (

@@ -3,7 +3,7 @@ import { readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
 
-const UPLOAD_DIR = join(process.cwd(), 'public/dienstplan-uploads');
+const UPLOAD_DIR = join(process.cwd(), 'storage/uploads');
 
 export const dynamic = 'force-dynamic';
 
@@ -15,6 +15,10 @@ export async function GET(
     const { fileName } = await context.params;
     const safeFileName = fileName.replace(/[\\/]/g, '');
     const filePath = join(UPLOAD_DIR, safeFileName);
+
+    if (!filePath.startsWith(UPLOAD_DIR)) {
+      return NextResponse.json({ error: 'Ungueltiger Dateipfad' }, { status: 400 });
+    }
 
     if (!safeFileName.toLowerCase().endsWith('.pdf') || !existsSync(filePath)) {
       return NextResponse.json({ error: 'Datei wurde nicht gefunden' }, { status: 404 });

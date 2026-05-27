@@ -82,8 +82,15 @@ function parseDateOrZero(value: string): number {
   return Number.isFinite(ts) ? ts : 0;
 }
 
+const CACHE_TTL_MS = 15 * 60 * 1000; // 15 Minuten
+
+let cachedNews: { data: object; expiresAt: number } | null = null;
+
 export async function GET() {
   try {
+    if (cachedNews && Date.now() < cachedNews.expiresAt) {
+      return NextResponse.json(cachedNews.data);
+    }
     const responses = await Promise.all(
       FEEDS.map(async (feed) => {
         try {
@@ -113,11 +120,15 @@ export async function GET() {
     deduped.sort((a, b) => parseDateOrZero(b.publishedAt) - parseDateOrZero(a.publishedAt));
     const items = deduped.slice(0, 24);
 
-    return NextResponse.json({
+    const payload = {
       source: FEEDS.map((x) => x.name).join(' + '),
       updatedAt: new Date().toISOString(),
       items,
-    });
+    };
+
+    cachedNews = { data: payload, expiresAt: Date.now() + CACHE_TTL_MS };
+
+    return NextResponse.json(payload);
   } catch (error) {
     console.error('Fehler beim Laden der Newsfeeds:', error);
 

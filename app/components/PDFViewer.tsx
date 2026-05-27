@@ -5,8 +5,8 @@ import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 import { DrawingColor, DrawingTool, DrawingToolbar } from './DrawingToolbar';
 import { OnScreenKeyboard } from './OnScreenKeyboard';
 
-if (typeof window !== 'undefined' && !GlobalWorkerOptions.workerSrc) {
-  GlobalWorkerOptions.workerSrc = '/pdf.worker.mjs';
+if (typeof window !== 'undefined') {
+  GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
 }
 
 interface PDFViewerProps {
@@ -381,6 +381,19 @@ export function PDFViewer({ pdfUrl, pdfName, onDrawingSaved }: PDFViewerProps) {
       setShowTextKeyboard(false);
     }
   }, [currentTool, editingEnabled]);
+
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    if (editingEnabled) {
+      el.style.touchAction = 'none';
+    } else {
+      el.style.touchAction = '';
+    }
+    return () => {
+      el.style.touchAction = '';
+    };
+  }, [editingEnabled]);
 
   const handleUnlockClick = () => {
     if (editingEnabled) {

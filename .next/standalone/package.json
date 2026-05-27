@@ -4,13 +4,16 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build && cp -r public .next/standalone/ && cp -r .next/static .next/standalone/.next/static",
+    "build": "next build && cpx \"public/**/*\" .next/standalone/public && cpx \".next/static/**/*\" .next/standalone/.next/static",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@next/env": "^16.2.6",
+    "@next/swc-win32-x64-msvc": "^16.2.6",
+    "@swc/helpers": "^0.5.21",
     "next": "16.2.3",
     "pdf-lib": "^1.17.1",
     "pdf-parse": "^2.4.5",
@@ -19,10 +22,12 @@
     "react-dom": "19.2.4"
   },
   "devDependencies": {
+    "@swc/core": "^1.15.33",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "cpx": "^1.5.0",
     "eslint": "^9",
     "eslint-config-next": "16.2.3",
     "tailwindcss": "^4",
