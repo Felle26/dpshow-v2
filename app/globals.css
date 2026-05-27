@@ -38,3 +38,27 @@ body {
 *::-webkit-scrollbar {
   display: none; /* Chromium / Safari */
 }
+
+.admin-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.9) rgba(15, 23, 42, 0.08);
+}
+
+.admin-scrollbar::-webkit-scrollbar {
+  display: block;
+  width: 10px;
+}
+
+.admin-scrollbar::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.08);
+  border-radius: 9999px;
+}
+
+.admin-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.9);
+  border-radius: 9999px;
+}
+
+.admin-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.95);
+}
