@@ -96,6 +96,32 @@ function parseNameDateTimestamp(fileName: string): number | null {
   return null;
 }
 
+function parseKwFromFileName(fileName: string, fallbackYear: number): { week: number; year: number } | null {
+  const base = fileName.replace(/\.pdf$/i, '');
+  const kwMatch = base.match(/\bkw\W*([0-5]?\d)(?:\D+(20\d{2}|\d{2}))?/i);
+  if (!kwMatch) {
+    return null;
+  }
+
+  const week = Number.parseInt(kwMatch[1], 10);
+  if (!Number.isFinite(week) || week < 1 || week > 53) {
+    return null;
+  }
+
+  const yearPart = kwMatch[2];
+  if (!yearPart) {
+    return { week, year: fallbackYear };
+  }
+
+  const parsedYear = Number.parseInt(yearPart, 10);
+  const year = yearPart.length === 2 ? 2000 + parsedYear : parsedYear;
+  if (!Number.isFinite(year)) {
+    return { week, year: fallbackYear };
+  }
+
+  return { week, year };
+}
+
 export default function BereichePage() {
   const [files, setFiles] = useState<PDFFile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -152,10 +178,44 @@ export default function BereichePage() {
       return b.name.localeCompare(a.name, 'de', { numeric: true, sensitivity: 'base' });
     });
 
-    return NAMED_GROUPS.map((group) => ({
-      ...group,
-      files: sorted.filter((file) => matchesNamedGroup(file.name, group)),
-    }));
+    return NAMED_GROUPS.map((group) => {
+      const groupFiles = sorted.filter((file) => matchesNamedGroup(file.name, group));
+
+      if (group.key !== 'belege') {
+        return {
+          ...group,
+          files: groupFiles,
+        };
+      }
+
+      const belegeSorted = [...groupFiles].sort((a, b) => {
+        const fallbackYearA = new Date(a.uploadDate).getFullYear();
+        const fallbackYearB = new Date(b.uploadDate).getFullYear();
+        const kwA = parseKwFromFileName(a.name, fallbackYearA);
+        const kwB = parseKwFromFileName(b.name, fallbackYearB);
+
+        if (kwA && kwB) {
+          if (kwA.year !== kwB.year) {
+            return kwB.year - kwA.year;
+          }
+
+          if (kwA.week !== kwB.week) {
+            return kwB.week - kwA.week;
+          }
+        } else if (kwA) {
+          return -1;
+        } else if (kwB) {
+          return 1;
+        }
+
+        return b.name.localeCompare(a.name, 'de', { numeric: true, sensitivity: 'base' });
+      });
+
+      return {
+        ...group,
+        files: belegeSorted,
+      };
+    });
   }, [files]);
 
   useEffect(() => {
