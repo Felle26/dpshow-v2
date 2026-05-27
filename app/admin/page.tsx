@@ -561,7 +561,7 @@ export default function AdminPage() {
         </div>
       </header>
 
-      <main className="flex-1 p-6 flex gap-6 flex-col overflow-y-auto min-h-0">
+      <main className="admin-scrollbar flex-1 p-6 flex gap-6 flex-col overflow-y-auto min-h-0">
         {/* Tab Navigation */}
         <div className="flex gap-2 border-b border-gray-300 dark:border-gray-700">
           <button

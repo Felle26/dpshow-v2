@@ -21,6 +21,8 @@ interface PDFPreviewWithLayersProps {
   pdfName: string;
   drawings?: Drawing[];
   showViewModeControls?: boolean;
+  showHeader?: boolean;
+  enableFocus?: boolean;
 }
 
 type ViewMode = 'single' | 'all';
@@ -31,6 +33,7 @@ interface PreviewPageProps {
   zoomFactor: number;
   resizeVersion: number;
   isActive: boolean;
+  enableFocus: boolean;
   pageDrawings: Drawing[];
   onActivate: (pageNumber: number) => void;
   onPageElementReady: (pageNumber: number, element: HTMLDivElement | null) => void;
@@ -43,6 +46,7 @@ function PreviewPage({
   zoomFactor,
   resizeVersion,
   isActive,
+  enableFocus,
   pageDrawings,
   onActivate,
   onPageElementReady,
@@ -168,23 +172,34 @@ function PreviewPage({
 
   return (
     <div className="flex w-full flex-col items-center gap-3">
-      <button
-        type="button"
-        onClick={() => onActivate(pageNumber)}
-        className={`w-full transition-colors ${
-          isActive ? 'outline-2 outline-blue-500 dark:outline-blue-400' : ''
-        }`}
-      >
-        <div ref={wrapperRef} className="mx-auto w-full max-w-full overflow-hidden bg-white">
-          <canvas
-            ref={canvasRef}
-            className="block bg-white"
-          />
+      {enableFocus ? (
+        <button
+          type="button"
+          onClick={() => onActivate(pageNumber)}
+          className={`w-full transition-colors ${
+            isActive ? 'outline-2 outline-blue-500 dark:outline-blue-400' : ''
+          }`}
+        >
+          <div ref={wrapperRef} className="mx-auto w-full max-w-full overflow-hidden bg-white">
+            <canvas
+              ref={canvasRef}
+              className="block bg-white"
+            />
+          </div>
+        </button>
+      ) : (
+        <div className="w-full">
+          <div ref={wrapperRef} className="mx-auto w-full max-w-full overflow-hidden bg-white">
+            <canvas
+              ref={canvasRef}
+              className="block bg-white"
+            />
+          </div>
         </div>
-      </button>
+      )}
       <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
         Seite {pageNumber}
-        {isActive ? ' • fokussiert' : ''}
+        {enableFocus && isActive ? ' • fokussiert' : ''}
       </div>
     </div>
   );
@@ -195,6 +210,8 @@ export function PDFPreviewWithLayers({
   pdfName,
   drawings = [],
   showViewModeControls = true,
+  showHeader = true,
+  enableFocus = true,
 }: PDFPreviewWithLayersProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const pageElementMapRef = useRef<Record<number, HTMLDivElement | null>>({});
@@ -335,14 +352,16 @@ export function PDFPreviewWithLayers({
 
   return (
     <div className="flex h-full flex-col bg-slate-100 dark:bg-slate-950">
-      <div className="border-b border-gray-300 bg-white p-4 dark:border-gray-700 dark:bg-slate-900">
-        <h3 className="text-lg font-bold text-gray-900 dark:text-white">📋 {pdfName}</h3>
-        {sortedDrawings.length > 0 && (
-          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-            {sortedDrawings.length} Zeichnung(en) überlagert
-          </p>
-        )}
-      </div>
+      {showHeader && (
+        <div className="border-b border-gray-300 bg-white p-4 dark:border-gray-700 dark:bg-slate-900">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white">📋 {pdfName}</h3>
+          {sortedDrawings.length > 0 && (
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+              {sortedDrawings.length} Zeichnung(en) überlagert
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-300 bg-white px-4 py-3 dark:border-gray-700 dark:bg-slate-900">
         <div className="flex flex-wrap items-center gap-2">
@@ -370,9 +389,11 @@ export function PDFPreviewWithLayers({
               </button>
             </>
           )}
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            Fokus: Seite {activePage} / {Math.max(totalPages, 1)}
-          </span>
+          {enableFocus && (
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Fokus: Seite {activePage} / {Math.max(totalPages, 1)}
+            </span>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -412,6 +433,7 @@ export function PDFPreviewWithLayers({
                 zoomFactor={zoomFactor}
                 resizeVersion={resizeVersion}
                 isActive={activePage === pageNumber}
+                enableFocus={enableFocus}
                 pageDrawings={sortedDrawings.filter((drawing) => drawing.page === pageNumber)}
                 onActivate={handleActivatePage}
                 onPageElementReady={handlePageElementReady}

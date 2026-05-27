@@ -17,6 +17,7 @@ interface NamedGroup {
 
 const NAMED_GROUPS: NamedGroup[] = [
   { key: 'kueche', label: 'Küche', exactPhrase: 'kueche' },
+  { key: 'belege', label: 'Belege', exactPhrase: 'belege' },
   { key: 'kuchen-feinback', label: 'Kuchen Feinback', exactPhrase: 'kuchen feinback' },
   {
     key: 'baeckerei-brot-broetchen-ofen',
@@ -167,7 +168,7 @@ export default function BereichePage() {
     grouped.find((group) => group.key === activeGroupKey) ?? grouped[0] ?? null;
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-slate-50 to-slate-200 p-6 dark:from-slate-950 dark:to-slate-900">
+    <div className="admin-scrollbar h-full min-h-0 overflow-y-auto bg-linear-to-br from-slate-50 to-slate-200 p-6 dark:from-slate-950 dark:to-slate-900">
       <div className="mx-auto max-w-6xl space-y-6">
         <header className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -243,19 +244,21 @@ export default function BereichePage() {
                     {activeGroup.files.map((file) => (
                       <div
                         key={file.name}
-                        className="overflow-hidden rounded-lg border border-slate-300 bg-white dark:border-slate-700 dark:bg-slate-900"
+                        className="space-y-2"
                       >
-                        <div className="border-b border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800">
-                          <p className="font-semibold text-slate-900 dark:text-slate-100">{file.name}</p>
+                        <div>
+                          <p className="text-sm text-slate-900 dark:text-slate-100">{file.name}</p>
                           <p className="text-xs text-slate-600 dark:text-slate-400">
                             Hochgeladen: {new Date(file.uploadDate).toLocaleString('de-DE')}
                           </p>
                         </div>
-                        <div className="h-[68vh] min-h-120 overflow-hidden">
+                        <div className="h-[68vh] min-h-120 overflow-hidden rounded-lg border border-slate-300 bg-white dark:border-slate-700 dark:bg-slate-900">
                           <PDFPreviewWithLayers
                             pdfUrl={`/dienstplan-uploads/${encodeURIComponent(file.name)}`}
                             pdfName={file.name}
                             showViewModeControls={false}
+                            showHeader={false}
+                            enableFocus={false}
                           />
                         </div>
                       </div>
