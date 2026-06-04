@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
-import { DrawingColor, DrawingTool, DrawingToolbar } from './DrawingToolbar';
+import { DrawingColor, DrawingTool, DrawingToolbar, TextBackgroundColor } from './DrawingToolbar';
 import { OnScreenKeyboard } from './OnScreenKeyboard';
 
 if (typeof window !== 'undefined') {
@@ -33,12 +33,14 @@ interface PDFPageCanvasProps {
   isActive: boolean;
   currentTool: DrawingTool;
   currentColor: DrawingColor;
+  textBackgroundColor: TextBackgroundColor;
   textInput: string;
   fontSize: number;
   onActivate: (pageNumber: number) => void;
   onOverlayCanvasReady: (pageNumber: number, canvas: HTMLCanvasElement | null) => void;
   onPageElementReady: (pageNumber: number, element: HTMLDivElement | null) => void;
   onPageRenderError: (message: string | null) => void;
+  onInteractionStart: (pageNumber: number, canvas: HTMLCanvasElement) => void;
   editingDrawingId: string | null;
   editingEnabled: boolean;
 }
@@ -52,12 +54,14 @@ function PDFPageCanvas({
   isActive,
   currentTool,
   currentColor,
+  textBackgroundColor,
   textInput,
   fontSize,
   onActivate,
   onOverlayCanvasReady,
   onPageElementReady,
   onPageRenderError,
+  onInteractionStart,
   editingDrawingId,
   editingEnabled,
 }: PDFPageCanvasProps) {
@@ -216,6 +220,8 @@ function PDFPageCanvas({
       return;
     }
 
+    onInteractionStart(pageNumber, overlayCanvas);
+
     overlayCanvas.setPointerCapture(e.pointerId);
     onActivate(pageNumber);
 
@@ -234,9 +240,17 @@ function PDFPageCanvas({
         ctx.font = `${fontSize}px Arial`;
         const metrics = ctx.measureText(textInput);
         const textWidth = metrics.width;
-        const padding = 6;
+        const padding = 3;
 
-        ctx.fillStyle = 'rgba(255, 255, 150, 0.9)';
+        const backgroundColors: Record<TextBackgroundColor, { fill: string; stroke: string }> = {
+          yellow: { fill: 'rgba(255, 255, 150, 0.85)', stroke: 'rgba(200, 200, 0, 0.6)' },
+          green: { fill: 'rgba(187, 247, 208, 0.85)', stroke: 'rgba(22, 163, 74, 0.6)' },
+          blue: { fill: 'rgba(191, 219, 254, 0.85)', stroke: 'rgba(37, 99, 235, 0.6)' },
+          pink: { fill: 'rgba(251, 207, 232, 0.85)', stroke: 'rgba(219, 39, 119, 0.6)' },
+        };
+        const backgroundStyle = backgroundColors[textBackgroundColor];
+
+        ctx.fillStyle = backgroundStyle.fill;
         ctx.fillRect(
           pos.x - padding,
           pos.y - padding,
@@ -244,7 +258,7 @@ function PDFPageCanvas({
           fontSize + padding * 2
         );
 
-        ctx.strokeStyle = 'rgba(200, 200, 0, 0.6)';
+        ctx.strokeStyle = backgroundStyle.stroke;
         ctx.lineWidth = 1;
         ctx.strokeRect(
           pos.x - padding,
@@ -343,9 +357,10 @@ export function PDFViewer({ pdfUrl, pdfName, onDrawingSaved }: PDFViewerProps) {
   const [activePage, setActivePage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [currentColor, setCurrentColor] = useState<DrawingColor>('#000000');
+  const [textBackgroundColor, setTextBackgroundColor] = useState<TextBackgroundColor>('yellow');
   const [currentTool, setCurrentTool] = useState<DrawingTool>('brush');
   const [textInput, setTextInput] = useState('');
-  const [fontSize, setFontSize] = useState(24);
+  const [fontSize, setFontSize] = useState(16);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedDrawings, setSavedDrawings] = useState<SavedDrawing[]>([]);
@@ -362,6 +377,81 @@ export function PDFViewer({ pdfUrl, pdfName, onDrawingSaved }: PDFViewerProps) {
   const [passwordRequired, setPasswordRequired] = useState(false);
   const [showTextKeyboard, setShowTextKeyboard] = useState(false);
   const [showPasswordKeyboard, setShowPasswordKeyboard] = useState(false);
+  const baselineByPageRef = useRef<Record<number, ImageData | null>>({});
+
+  const loadImage = (url: string): Promise<HTMLImageElement> => {
+    return new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = () => reject(new Error('Bild konnte nicht geladen werden'));
+      image.src = url;
+    });
+  };
+
+  const ensureBaselineForPage = (pageNumber: number, canvas: HTMLCanvasElement) => {
+    if (baselineByPageRef.current[pageNumber]) {
+      return;
+    }
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx || canvas.width === 0 || canvas.height === 0) {
+      return;
+    }
+
+    baselineByPageRef.current[pageNumber] = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  };
+
+  const extractDeltaCanvas = (
+    currentCanvas: HTMLCanvasElement,
+    baseline: ImageData | null
+  ): { canvas: HTMLCanvasElement; hasDelta: boolean } => {
+    const width = currentCanvas.width;
+    const height = currentCanvas.height;
+    const outCanvas = document.createElement('canvas');
+    outCanvas.width = width;
+    outCanvas.height = height;
+
+    const currentCtx = currentCanvas.getContext('2d');
+    const outCtx = outCanvas.getContext('2d');
+    if (!currentCtx || !outCtx) {
+      return { canvas: outCanvas, hasDelta: false };
+    }
+
+    const currentData = currentCtx.getImageData(0, 0, width, height);
+    const outData = outCtx.createImageData(width, height);
+    const source = currentData.data;
+    const target = outData.data;
+    const base = baseline?.data;
+    let hasDelta = false;
+
+    for (let i = 0; i < source.length; i += 4) {
+      const sameAsBase =
+        !!base &&
+        base[i] === source[i] &&
+        base[i + 1] === source[i + 1] &&
+        base[i + 2] === source[i + 2] &&
+        base[i + 3] === source[i + 3];
+
+      if (sameAsBase) {
+        target[i] = 0;
+        target[i + 1] = 0;
+        target[i + 2] = 0;
+        target[i + 3] = 0;
+        continue;
+      }
+
+      target[i] = source[i];
+      target[i + 1] = source[i + 1];
+      target[i + 2] = source[i + 2];
+      target[i + 3] = source[i + 3];
+      if (source[i + 3] > 0) {
+        hasDelta = true;
+      }
+    }
+
+    outCtx.putImageData(outData, 0, 0);
+    return { canvas: outCanvas, hasDelta };
+  };
 
   useEffect(() => {
     fetch('/api/edit-password')
@@ -369,8 +459,12 @@ export function PDFViewer({ pdfUrl, pdfName, onDrawingSaved }: PDFViewerProps) {
       .then((data) => {
         setPasswordRequired(data.passwordSet);
         if (!data.passwordSet) {
-          // Kein Passwort gesetzt – direkt freischalten
+          // Kein Passwort gesetzt – PIN-Abfrage sicher deaktivieren
           setEditingEnabled(false);
+          setShowPasswordModal(false);
+          setShowPasswordKeyboard(false);
+          setPasswordInput('');
+          setPasswordError('');
         }
       })
       .catch(() => {});
@@ -415,6 +509,10 @@ export function PDFViewer({ pdfUrl, pdfName, onDrawingSaved }: PDFViewerProps) {
     }
 
     if (!requiresPassword) {
+      setShowPasswordModal(false);
+      setShowPasswordKeyboard(false);
+      setPasswordInput('');
+      setPasswordError('');
       setEditingEnabled(true);
       setViewMode('single');
       setCurrentPage(activePage);
@@ -510,6 +608,10 @@ export function PDFViewer({ pdfUrl, pdfName, onDrawingSaved }: PDFViewerProps) {
   }, [drawingsVersion, pdfName]);
 
   useEffect(() => {
+    baselineByPageRef.current = {};
+  }, [drawingsVersion, pdfName]);
+
+  useEffect(() => {
     const onResize = () => {
       setResizeVersion((value) => value + 1);
     };
@@ -602,7 +704,27 @@ export function PDFViewer({ pdfUrl, pdfName, onDrawingSaved }: PDFViewerProps) {
 
     setIsSaving(true);
     try {
-      const drawingDataUrl = canvas.toDataURL('image/png');
+      const baseline = baselineByPageRef.current[activePage] ?? null;
+      const { canvas: deltaCanvas, hasDelta } = extractDeltaCanvas(canvas, baseline);
+
+      if (!hasDelta && !editingDrawingId) {
+        alert('Keine neue Änderung vorhanden.');
+        return;
+      }
+
+      if (!hasDelta && editingDrawingId) {
+        await fetch('/api/drawings/delete', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ drawingId: editingDrawingId, pdfName }),
+        });
+        setEditingDrawingId(null);
+        setDrawingsVersion((value) => value + 1);
+        alert(`Änderung auf Seite ${activePage} entfernt.`);
+        return;
+      }
+
+      const drawingDataUrl = deltaCanvas.toDataURL('image/png');
       const blob = await fetch(drawingDataUrl).then((response) => response.blob());
 
       const formData = new FormData();
@@ -628,6 +750,7 @@ export function PDFViewer({ pdfUrl, pdfName, onDrawingSaved }: PDFViewerProps) {
         });
         setEditingDrawingId(null);
       }
+      baselineByPageRef.current[activePage] = null;
       setDrawingsVersion((value) => value + 1);
       if (onDrawingSaved) {
         onDrawingSaved();
@@ -701,24 +824,57 @@ export function PDFViewer({ pdfUrl, pdfName, onDrawingSaved }: PDFViewerProps) {
     if (viewMode === 'single') {
       setCurrentPage(drawing.page);
     }
-    const loadOntoCanvas = () => {
+    const loadOntoCanvas = async () => {
       const canvas = overlayCanvasMapRef.current[drawing.page];
       if (!canvas) {
-        setTimeout(loadOntoCanvas, 100);
+        setTimeout(() => {
+          void loadOntoCanvas();
+        }, 120);
         return;
       }
+
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
-      const img = new Image();
-      img.onload = () => {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      };
-      img.src = drawing.url;
+
+      const otherLayers = savedDrawings
+        .filter((d) => d.page === drawing.page && d.id !== drawing.id)
+        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+      const baselineCanvas = document.createElement('canvas');
+      baselineCanvas.width = canvas.width;
+      baselineCanvas.height = canvas.height;
+      const baselineCtx = baselineCanvas.getContext('2d');
+      if (!baselineCtx) return;
+
+      for (const layer of otherLayers) {
+        try {
+          const image = await loadImage(layer.url);
+          baselineCtx.drawImage(image, 0, 0, baselineCanvas.width, baselineCanvas.height);
+        } catch {
+          // Ignoriere defekte Layer-Bilder beim Aufbau der Basis.
+        }
+      }
+
+      const baseline = baselineCtx.getImageData(0, 0, baselineCanvas.width, baselineCanvas.height);
+      baselineByPageRef.current[drawing.page] = baseline;
+
+      ctx.putImageData(baseline, 0, 0);
+
+      try {
+        const editImage = await loadImage(drawing.url);
+        ctx.drawImage(editImage, 0, 0, canvas.width, canvas.height);
+      } catch {
+        // Wenn das Edit-Bild nicht lädt, bleibt nur die Basis sichtbar.
+      }
     };
-    loadOntoCanvas();
+
     setEditingDrawingId(drawing.id);
+    void loadOntoCanvas();
     setShowLayersPanel(false);
+  };
+
+  const handleInteractionStart = (pageNumber: number, canvas: HTMLCanvasElement) => {
+    ensureBaselineForPage(pageNumber, canvas);
   };
 
   const pageLayerDrawings = savedDrawings.filter((d) => d.page === activePage);
@@ -770,10 +926,12 @@ export function PDFViewer({ pdfUrl, pdfName, onDrawingSaved }: PDFViewerProps) {
       {editingEnabled && (
         <DrawingToolbar
           currentColor={currentColor}
+          currentTextBackground={textBackgroundColor}
           currentTool={currentTool}
           textInput={textInput}
           fontSize={fontSize}
           onColorChange={setCurrentColor}
+          onTextBackgroundChange={setTextBackgroundColor}
           onToolChange={setCurrentTool}
           onTextChange={setTextInput}
           onFontSizeChange={setFontSize}
@@ -865,12 +1023,14 @@ export function PDFViewer({ pdfUrl, pdfName, onDrawingSaved }: PDFViewerProps) {
                 isActive={activePage === pageNumber}
                 currentTool={currentTool}
                 currentColor={currentColor}
+                textBackgroundColor={textBackgroundColor}
                 textInput={textInput}
                 fontSize={fontSize}
                 onActivate={handleActivatePage}
                 onOverlayCanvasReady={handleOverlayCanvasReady}
                 onPageElementReady={handlePageElementReady}
                 onPageRenderError={setError}
+                onInteractionStart={handleInteractionStart}
                 editingDrawingId={editingDrawingId}
                 editingEnabled={editingEnabled}
               />
@@ -987,16 +1147,6 @@ export function PDFViewer({ pdfUrl, pdfName, onDrawingSaved }: PDFViewerProps) {
       {editingEnabled && currentTool === 'text' && showTextKeyboard && !showPasswordModal && (
         <div className="fixed inset-x-0 bottom-0 z-40 bg-black/25 px-4 pb-4 pt-3 backdrop-blur-sm">
           <div className="mx-auto w-full max-w-5xl rounded-xl border border-gray-300 bg-gray-100 p-3 shadow-2xl dark:border-gray-700 dark:bg-slate-900">
-            <div className="mb-2 flex items-center justify-between">
-              <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">Text-Tastatur</p>
-              <button
-                type="button"
-                onClick={() => setShowTextKeyboard(false)}
-                className="min-h-10 rounded-lg bg-gray-200 px-3 py-2 text-sm font-semibold text-gray-900 transition-colors hover:bg-gray-300 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600"
-              >
-                Schliessen
-              </button>
-            </div>
             <OnScreenKeyboard
               value={textInput}
               onChange={setTextInput}

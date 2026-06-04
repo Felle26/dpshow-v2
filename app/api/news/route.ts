@@ -15,13 +15,36 @@ interface NewsItem {
 }
 
 function decodeXmlEntities(value: string): string {
+  const namedEntities: Record<string, string> = {
+    amp: '&',
+    quot: '"',
+    apos: "'",
+    '#39': "'",
+    lt: '<',
+    gt: '>',
+    nbsp: ' ',
+    auml: 'ä',
+    ouml: 'ö',
+    uuml: 'ü',
+    Auml: 'Ä',
+    Ouml: 'Ö',
+    Uuml: 'Ü',
+    szlig: 'ß',
+  };
+
   return value
     .replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1')
-    .replace(/&amp;/g, '&')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
+    .replace(/&#(\d+);/g, (_, dec: string) => {
+      const code = Number.parseInt(dec, 10);
+      return Number.isFinite(code) ? String.fromCodePoint(code) : _;
+    })
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex: string) => {
+      const code = Number.parseInt(hex, 16);
+      return Number.isFinite(code) ? String.fromCodePoint(code) : _;
+    })
+    .replace(/&([a-zA-Z0-9#]+);/g, (full: string, entity: string) => {
+      return namedEntities[entity] ?? full;
+    })
     .trim();
 }
 

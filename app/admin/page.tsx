@@ -81,8 +81,6 @@ interface GroupedFileGroup {
 export default function AdminPage() {
   const router = useRouter();
   const lastChangedAtRef = useRef<string | null>(null);
-  const [adminAccessChecked, setAdminAccessChecked] = useState(false);
-  const [adminAccessGranted, setAdminAccessGranted] = useState(false);
   const [files, setFiles] = useState<PDFFile[]>([]);
   const [drawings, setDrawings] = useState<Record<string, Drawing[]>>({});
   const [loading, setLoading] = useState(true);
@@ -100,6 +98,8 @@ export default function AdminPage() {
   const [weatherLocationName, setWeatherLocationName] = useState('Deutschland');
   const [weatherLatitude, setWeatherLatitude] = useState('51.1657');
   const [weatherLongitude, setWeatherLongitude] = useState('10.4515');
+  const [showQuickLinkEnabled, setShowQuickLinkEnabled] = useState(false);
+  const [showQuickLinkUrl, setShowQuickLinkUrl] = useState('');
   const [screensaverStatus, setScreensaverStatus] = useState<'idle' | 'loading' | 'saving' | 'saved' | 'error'>('idle');
 
   const loadPasswordStatus = async () => {
@@ -125,6 +125,8 @@ export default function AdminPage() {
         setWeatherLocationName(data.weatherLocationName ?? 'Deutschland');
         setWeatherLatitude(String(data.weatherLatitude ?? 51.1657));
         setWeatherLongitude(String(data.weatherLongitude ?? 10.4515));
+        setShowQuickLinkEnabled(Boolean(data.showQuickLinkEnabled));
+        setShowQuickLinkUrl(typeof data.showQuickLinkUrl === 'string' ? data.showQuickLinkUrl : '');
       }
       setScreensaverStatus('idle');
     } catch {
@@ -152,6 +154,19 @@ export default function AdminPage() {
       return;
     }
 
+    if (showQuickLinkEnabled) {
+      try {
+        const parsed = new URL(showQuickLinkUrl.trim());
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+          throw new Error();
+        }
+      } catch {
+        setScreensaverStatus('error');
+        setTimeout(() => setScreensaverStatus('idle'), 2000);
+        return;
+      }
+    }
+
     setScreensaverStatus('saving');
     try {
       const res = await fetch('/api/screensaver-config', {
@@ -161,6 +176,8 @@ export default function AdminPage() {
           timeoutMinutes: screensaverTimeout,
           sportsSwitchMinutes,
           weatherLocationName: weatherLocationName.trim() || 'Deutschland',
+          showQuickLinkEnabled,
+          showQuickLinkUrl: showQuickLinkUrl.trim(),
         }),
       });
       if (!res.ok) throw new Error();
@@ -170,6 +187,8 @@ export default function AdminPage() {
       setWeatherLatitude(String(data.weatherLatitude ?? weatherLatitude));
       setWeatherLongitude(String(data.weatherLongitude ?? weatherLongitude));
       setWeatherLocationName(data.weatherLocationName ?? weatherLocationName);
+      setShowQuickLinkEnabled(Boolean(data.showQuickLinkEnabled));
+      setShowQuickLinkUrl(typeof data.showQuickLinkUrl === 'string' ? data.showQuickLinkUrl : showQuickLinkUrl);
       setScreensaverStatus('saved');
       setTimeout(() => setScreensaverStatus('idle'), 2000);
     } catch {
@@ -341,43 +360,12 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
-    // Prüfe, ob bereits in dieser Session bestätigt wurde
-    const sessionConfirmed = typeof window !== 'undefined' && sessionStorage.getItem('adminAccessConfirmed') === 'true';
-
-    if (sessionConfirmed) {
-      // In dieser Session bereits bestätigt - direkt laden
-      setAdminAccessGranted(true);
-      setAdminAccessChecked(true);
-    } else {
-      // Erste Anfrage in dieser Session
-      const confirmed = window.confirm('Admin-Bereich öffnen?');
-      if (!confirmed) {
-        router.replace('/');
-        return;
-      }
-
-      // Speichere die Bestätigung in dieser Session
-      sessionStorage.setItem('adminAccessConfirmed', 'true');
-      setAdminAccessGranted(true);
-      setAdminAccessChecked(true);
-    }
-  }, [router]);
-
-  useEffect(() => {
-    if (!adminAccessGranted) {
-      return;
-    }
-
     loadData();
     loadPasswordStatus();
     loadScreensaverConfig();
-  }, [adminAccessGranted]);
+  }, []);
 
   useEffect(() => {
-    if (!adminAccessGranted) {
-      return;
-    }
-
     let ignore = false;
 
     fetch('/api/upload-timestamp')
@@ -413,15 +401,7 @@ export default function AdminPage() {
       ignore = true;
       window.clearInterval(intervalId);
     };
-  }, [adminAccessGranted]);
-
-  if (!adminAccessChecked || !adminAccessGranted) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-100 text-lg font-semibold text-slate-700 dark:bg-slate-950 dark:text-slate-200">
-        Sicherheitsabfrage wird geprüft...
-      </div>
-    );
-  }
+  }, []);
 
   const handleDeleteDrawing = async (drawingId: string, pdfName: string) => {
     if (!window.confirm('Änderung wirklich löschen?')) return;
@@ -913,6 +893,50 @@ export default function AdminPage() {
                       🔓 Pin entfernen
                     </button>
                   )}
+                </div>
+              </section>
+
+              <section className="bg-white dark:bg-slate-900 rounded-lg shadow-lg p-6">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                  3. Externe Webseite im Show-Bereich
+                </h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                  Zeigt einen Umschalt-Button in der Show-Ansicht an. Der Button oeffnet/schliesst eine Webseite per iFrame.
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+                  Hinweis: Die Eingabe ueber die Bildschirmtastatur funktioniert nur, wenn eure CMS-Seite Nachrichten per postMessage (source: dpshow-osk) auswertet.
+                </p>
+                <div className="flex flex-col gap-3">
+                  <label className="inline-flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                    <input
+                      type="checkbox"
+                      checked={showQuickLinkEnabled}
+                      onChange={(e) => setShowQuickLinkEnabled(e.target.checked)}
+                      className="h-4 w-4"
+                    />
+                    Button in Show-Ansicht aktivieren
+                  </label>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <label htmlFor="show-quick-link-url" className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                      URL:
+                    </label>
+                    <input
+                      id="show-quick-link-url"
+                      type="url"
+                      placeholder="https://example.com"
+                      value={showQuickLinkUrl}
+                      onChange={(e) => setShowQuickLinkUrl(e.target.value)}
+                      className="min-w-80 flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white text-sm"
+                    />
+                    <button
+                      onClick={handleSaveScreensaverTimeout}
+                      disabled={screensaverStatus === 'saving' || screensaverStatus === 'loading'}
+                      className="px-4 py-2 bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white rounded-lg font-semibold transition-colors whitespace-nowrap text-sm"
+                    >
+                      {screensaverStatus === 'loading' ? 'Laedt...' : screensaverStatus === 'saving' ? 'Speichert...' : screensaverStatus === 'saved' ? '✓ Gespeichert' : screensaverStatus === 'error' ? '✗ Fehler' : '💾 Speichern'}
+                    </button>
+                  </div>
                 </div>
               </section>
             </div>

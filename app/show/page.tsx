@@ -4,15 +4,22 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { PDFViewer } from '../components/PDFViewer';
 import { PDFThumbnailStrip } from '../components/PDFThumbnailStrip';
 import { Screensaver } from '../components/Screensaver';
+import { OnScreenKeyboard } from '../components/OnScreenKeyboard';
 
 export default function ShowPage() {
   const [selectedPdf, setSelectedPdf] = useState<{ name: string; url: string } | null>(null);
   const [showUpdateBanner, setShowUpdateBanner] = useState(false);
   const [isScreensaverActive, setIsScreensaverActive] = useState(false);
   const [screensaverTimeout, setScreensaverTimeout] = useState(5);
+  const [showQuickLinkEnabled, setShowQuickLinkEnabled] = useState(false);
+  const [showQuickLinkUrl, setShowQuickLinkUrl] = useState('');
+  const [isQuickLinkOpen, setIsQuickLinkOpen] = useState(false);
+  const [showQuickLinkKeyboard, setShowQuickLinkKeyboard] = useState(false);
+  const [quickLinkKeyboardValue, setQuickLinkKeyboardValue] = useState('');
   const [pixelShiftIndex, setPixelShiftIndex] = useState(0);
   const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastActivityRef = useRef<number>(Date.now());
+  const quickLinkIframeRef = useRef<HTMLIFrameElement | null>(null);
 
   const pixelShiftOffsets = React.useMemo(
     () => [
@@ -52,6 +59,8 @@ export default function ShowPage() {
       if (res.ok) {
         const data = await res.json();
         setScreensaverTimeout(data.timeoutMinutes);
+        setShowQuickLinkEnabled(Boolean(data.showQuickLinkEnabled));
+        setShowQuickLinkUrl(typeof data.showQuickLinkUrl === 'string' ? data.showQuickLinkUrl : '');
       }
     } catch {
       // ignore
@@ -78,6 +87,73 @@ export default function ShowPage() {
   useEffect(() => {
     loadScreensaverConfig();
   }, []);
+
+  useEffect(() => {
+    if (!showQuickLinkEnabled || !showQuickLinkUrl) {
+      setIsQuickLinkOpen(false);
+      setShowQuickLinkKeyboard(false);
+      setQuickLinkKeyboardValue('');
+    }
+  }, [showQuickLinkEnabled, showQuickLinkUrl]);
+
+  const quickLinkTargetOrigin = React.useMemo(() => {
+    try {
+      return new URL(showQuickLinkUrl).origin;
+    } catch {
+      return '*';
+    }
+  }, [showQuickLinkUrl]);
+
+  const postQuickLinkMessage = useCallback(
+    (payload: Record<string, unknown>) => {
+      const frameWindow = quickLinkIframeRef.current?.contentWindow;
+      if (!frameWindow) {
+        return;
+      }
+
+      frameWindow.postMessage(
+        {
+          source: 'dpshow-osk',
+          ...payload,
+        },
+        quickLinkTargetOrigin
+      );
+    },
+    [quickLinkTargetOrigin]
+  );
+
+  const handleQuickLinkKeyboardChange = useCallback(
+    (next: string) => {
+      setQuickLinkKeyboardValue((prev) => {
+        if (next === prev) {
+          return prev;
+        }
+
+        if (next.length === 0 && prev.length > 0) {
+          postQuickLinkMessage({ type: 'clear' });
+          return next;
+        }
+
+        if (next.length === prev.length - 1 && prev.startsWith(next)) {
+          postQuickLinkMessage({ type: 'backspace' });
+          return next;
+        }
+
+        if (next.length === prev.length + 1 && next.startsWith(prev)) {
+          postQuickLinkMessage({ type: 'append', value: next.slice(-1) });
+          return next;
+        }
+
+        postQuickLinkMessage({ type: 'setValue', value: next });
+        return next;
+      });
+    },
+    [postQuickLinkMessage]
+  );
+
+  const handleQuickLinkKeyboardEnter = useCallback(() => {
+    postQuickLinkMessage({ type: 'submit' });
+  }, [postQuickLinkMessage]);
 
   useEffect(() => {
     // Starte den Inaktivitäts-Timer
@@ -172,6 +248,39 @@ export default function ShowPage() {
           </div>
         </div>
       )}
+
+      {showQuickLinkEnabled && showQuickLinkUrl && (
+        <div className="z-40 flex items-center justify-end border-b border-slate-300 bg-white/95 px-5 py-3 backdrop-blur-sm dark:border-slate-700 dark:bg-slate-900/95">
+          <div className="flex items-center gap-2">
+            {isQuickLinkOpen && (
+              <button
+                type="button"
+                onClick={() => setShowQuickLinkKeyboard((prev) => !prev)}
+                className="rounded-lg bg-slate-600 px-4 py-3 text-sm font-bold text-white shadow transition-colors hover:bg-slate-700"
+              >
+                {showQuickLinkKeyboard ? '⌨ Tastatur aus' : '⌨ Tastatur ein'}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setIsQuickLinkOpen((prev) => {
+                  const next = !prev;
+                  if (!next) {
+                    setShowQuickLinkKeyboard(false);
+                    setQuickLinkKeyboardValue('');
+                  }
+                  return next;
+                });
+              }}
+              className="rounded-lg bg-blue-600 px-5 py-3 text-sm font-bold text-white shadow transition-colors hover:bg-blue-700"
+            >
+              {isQuickLinkOpen ? '✕ Seite schließen' : '🌐 Seite öffnen'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Viewer Area */}
       <div className="flex-1 min-h-0">
         {selectedPdf ? (
@@ -189,6 +298,33 @@ export default function ShowPage() {
           </div>
         )}
       </div>
+
+      {isQuickLinkOpen && showQuickLinkEnabled && showQuickLinkUrl && (
+        <div className="fixed inset-0 z-30 bg-white dark:bg-slate-950">
+          <iframe
+            ref={quickLinkIframeRef}
+            src={showQuickLinkUrl}
+            title="Externe Webseite"
+            className="h-full w-full border-0"
+            loading="lazy"
+            referrerPolicy="no-referrer"
+          />
+        </div>
+      )}
+
+      {isQuickLinkOpen && showQuickLinkKeyboard && (
+        <div className="fixed inset-x-0 bottom-0 z-40 bg-black/25 px-4 pb-4 pt-3 backdrop-blur-sm">
+          <div className="mx-auto w-full max-w-5xl rounded-xl border border-gray-300 bg-gray-100 p-3 shadow-2xl dark:border-gray-700 dark:bg-slate-900">
+            <OnScreenKeyboard
+              value={quickLinkKeyboardValue}
+              onChange={handleQuickLinkKeyboardChange}
+              onEnter={handleQuickLinkKeyboardEnter}
+              onClose={() => setShowQuickLinkKeyboard(false)}
+              displayLabel="CMS Eingabe"
+            />
+          </div>
+        </div>
+      )}
 
       {/* Thumbnail Strip */}
       <PDFThumbnailStrip

@@ -4,13 +4,16 @@ import React from 'react';
 
 export type DrawingColor = '#000000' | '#FF0000' | '#00AA00' | '#0000FF' | '#FFAA00';
 export type DrawingTool = 'brush' | 'eraser' | 'text';
+export type TextBackgroundColor = 'yellow' | 'green' | 'blue' | 'pink';
 
 interface DrawingToolbarProps {
   currentColor: DrawingColor;
+  currentTextBackground: TextBackgroundColor;
   currentTool: DrawingTool;
   textInput: string;
   fontSize: number;
   onColorChange: (color: DrawingColor) => void;
+  onTextBackgroundChange: (color: TextBackgroundColor) => void;
   onToolChange: (tool: DrawingTool) => void;
   onTextChange: (text: string) => void;
   onFontSizeChange: (size: number) => void;
@@ -31,12 +34,21 @@ const COLOR_NAMES: Record<DrawingColor, string> = {
   '#FFAA00': 'Orange',
 };
 
+const TEXT_BACKGROUND_COLORS: Array<{ key: TextBackgroundColor; label: string; fill: string }> = [
+  { key: 'yellow', label: 'Gelb', fill: '#fef08a' },
+  { key: 'green', label: 'Grün', fill: '#bbf7d0' },
+  { key: 'blue', label: 'Blau', fill: '#bfdbfe' },
+  { key: 'pink', label: 'Pink', fill: '#fbcfe8' },
+];
+
 export function DrawingToolbar({
   currentColor,
+  currentTextBackground,
   currentTool,
   textInput,
   fontSize,
   onColorChange,
+  onTextBackgroundChange,
   onToolChange,
   onTextChange,
   onFontSizeChange,
@@ -119,14 +131,14 @@ export function DrawingToolbar({
               <span className="text-base font-semibold text-gray-700 dark:text-gray-300">Größe:</span>
               <button
                 type="button"
-                onClick={() => onFontSizeChange(18)}
+                onClick={() => onFontSizeChange(16)}
                 className={`min-h-11 rounded-lg px-4 text-sm font-semibold transition-colors ${
-                  fontSize === 18
+                  fontSize === 16
                     ? 'bg-blue-500 text-white'
                     : 'bg-gray-200 text-gray-900 hover:bg-gray-300 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600'
                 }`}
               >
-                18px
+                16px
               </button>
               <button
                 type="button"
@@ -150,6 +162,23 @@ export function DrawingToolbar({
               >
                 52px
               </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-base font-semibold text-gray-700 dark:text-gray-300">Hintergrund:</span>
+              {TEXT_BACKGROUND_COLORS.map((bg) => (
+                <button
+                  key={bg.key}
+                  type="button"
+                  onClick={() => onTextBackgroundChange(bg.key)}
+                  title={bg.label}
+                  className={`h-9 w-9 rounded-md border-2 transition-transform ${
+                    currentTextBackground === bg.key
+                      ? 'border-gray-800 dark:border-white scale-105'
+                      : 'border-gray-400 dark:border-gray-600 hover:scale-105'
+                  }`}
+                  style={{ backgroundColor: bg.fill }}
+                />
+              ))}
             </div>
           </div>
         </div>

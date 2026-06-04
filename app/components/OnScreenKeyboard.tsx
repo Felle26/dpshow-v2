@@ -17,7 +17,8 @@ const LETTER_ROWS = [
   ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
   ['y', 'x', 'c', 'v', 'b', 'n', 'm'],
 ] as const;
-const UMLAUT_KEYS = ['ä', 'ö', 'ü'] as const;
+const UMLAUT_KEYS = ['ä', 'ö', 'ü', 'ß'] as const;
+const SYMBOL_KEYS = ['-', ':'] as const;
 
 const NUMBER_ROW = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'] as const;
 const PIN_PAD_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'clear', '0', 'backspace'] as const;
@@ -39,9 +40,18 @@ export function OnScreenKeyboard({
   );
 
   const umlautKeys = useMemo(
-    () => UMLAUT_KEYS.map((char) => (caps ? char.toUpperCase() : char)),
+    () =>
+      UMLAUT_KEYS.map((char) => {
+        if (char === 'ß') {
+          return caps ? 'ẞ' : 'ß';
+        }
+
+        return caps ? char.toUpperCase() : char;
+      }),
     [caps]
   );
+
+  const specialKeys = useMemo(() => [...umlautKeys, ...SYMBOL_KEYS], [umlautKeys]);
 
   const addChar = (char: string) => {
     onChange(`${value}${char}`);
@@ -63,6 +73,8 @@ export function OnScreenKeyboard({
 
   const baseButtonClass =
     'min-h-12 rounded-lg border border-gray-300 bg-white px-3 text-lg font-semibold text-gray-900 transition-colors hover:bg-gray-100 active:bg-gray-200 dark:border-gray-600 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700';
+  const compactButtonClass =
+    'min-h-9 rounded-lg border border-gray-300 bg-white px-2 text-base font-semibold text-gray-900 transition-colors hover:bg-gray-100 active:bg-gray-200 dark:border-gray-600 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700';
 
   const displayedValue = maskDisplay ? '•'.repeat(value.length) : value;
   const effectiveLabel = displayLabel ?? (numericOnly ? 'PIN-Eingabe' : 'Eingabe');
@@ -121,7 +133,7 @@ export function OnScreenKeyboard({
         </div>
       ) : (
         <>
-          <div className="mb-2 grid grid-cols-10 gap-2">
+          <div className="mb-3 grid grid-cols-10 gap-2">
             {NUMBER_ROW.map((digit) => (
               <button
                 key={digit}
@@ -152,27 +164,40 @@ export function OnScreenKeyboard({
             </div>
           ))}
 
+          <div className="mb-2 mt-2 grid grid-cols-6 gap-2 px-8 sm:px-20">
+            {specialKeys.map((char) => (
+              <button
+                key={char}
+                type="button"
+                onClick={() => addChar(char)}
+                className={compactButtonClass}
+              >
+                {char}
+              </button>
+            ))}
+          </div>
+
           <div className="grid grid-cols-4 gap-2">
             <button
               type="button"
               onClick={() => setCaps((v) => !v)}
               className={`${baseButtonClass} ${caps ? 'bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-500 dark:text-white' : ''}`}
             >
-              ⇧ Shift
+              Großschreiben
             </button>
             <button
               type="button"
               onClick={backspace}
               className={baseButtonClass}
             >
-              ⌫ Zurueck
+              ⌫ Zurück
             </button>
             <button
               type="button"
               onClick={() => addChar(' ')}
               className={baseButtonClass}
             >
-              ␣ Leer
+              ␣ Leertaste
             </button>
             <button
               type="button"
@@ -182,31 +207,20 @@ export function OnScreenKeyboard({
               ✖ Leeren
             </button>
           </div>
-
-          <div className="mb-2 mt-2 grid grid-cols-3 gap-2 px-24">
-            {umlautKeys.map((char) => (
-              <button
-                key={char}
-                type="button"
-                onClick={() => addChar(char)}
-                className={baseButtonClass}
-              >
-                {char}
-              </button>
-            ))}
-          </div>
         </>
       )}
 
       {!numericOnly && (
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={handleEnter}
-            className="min-h-12 rounded-lg bg-green-500 px-4 text-lg font-semibold text-white transition-colors hover:bg-green-600 active:bg-green-700"
-          >
-            ↵ Enter
-          </button>
+        <div className={`mt-2 grid gap-2 ${onEnter ? 'grid-cols-2' : 'grid-cols-1'}`}>
+          {onEnter && (
+            <button
+              type="button"
+              onClick={handleEnter}
+              className="min-h-12 rounded-lg bg-green-500 px-4 text-lg font-semibold text-white transition-colors hover:bg-green-600 active:bg-green-700"
+            >
+              ↵ Enter
+            </button>
+          )}
           <button
             type="button"
             onClick={onClose}

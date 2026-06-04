@@ -9,6 +9,15 @@ interface PDFFile {
   uploadDate: string;
 }
 
+interface Drawing {
+  id: string;
+  fileName: string;
+  pdfName: string;
+  page: number;
+  createdAt: string;
+  url: string;
+}
+
 interface NamedGroup {
   key: string;
   label: string;
@@ -49,6 +58,7 @@ function matchesNamedGroup(fileName: string, group: NamedGroup): boolean {
 
 export default function BereichePage() {
   const [files, setFiles] = useState<PDFFile[]>([]);
+  const [drawings, setDrawings] = useState<Record<string, Drawing[]>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeGroupKey, setActiveGroupKey] = useState<string>(NAMED_GROUPS[0]?.key ?? 'kueche');
@@ -66,13 +76,41 @@ export default function BereichePage() {
         }
 
         const data = await response.json();
-        const pdfFiles = Array.isArray(data.files)
+        const pdfFiles: PDFFile[] = Array.isArray(data.files)
           ? data.files.filter((f: PDFFile) => f.name.toLowerCase().endsWith('.pdf'))
           : [];
 
         if (!ignore) {
           setFiles(pdfFiles);
           setError(null);
+        }
+
+        const drawingsByPdf: Record<string, Drawing[]> = {};
+        await Promise.all(
+          pdfFiles.map(async (file) => {
+            try {
+              const drawingsResponse = await fetch(
+                `/api/drawings/list?pdfName=${encodeURIComponent(file.name)}`,
+                { cache: 'no-store' }
+              );
+
+              if (!drawingsResponse.ok) {
+                drawingsByPdf[file.name] = [];
+                return;
+              }
+
+              const drawingsData = await drawingsResponse.json();
+              drawingsByPdf[file.name] = Array.isArray(drawingsData.drawings)
+                ? drawingsData.drawings
+                : [];
+            } catch {
+              drawingsByPdf[file.name] = [];
+            }
+          })
+        );
+
+        if (!ignore) {
+          setDrawings(drawingsByPdf);
         }
       } catch (err) {
         if (!ignore) {
@@ -230,6 +268,7 @@ export default function BereichePage() {
                           <PDFPreviewWithLayers
                             pdfUrl={`/dienstplan-uploads/${encodeURIComponent(file.name)}`}
                             pdfName={file.name}
+                            drawings={drawings[file.name] ?? []}
                             showViewModeControls={false}
                             showHeader={false}
                             enableFocus={false}

@@ -9,6 +9,8 @@ interface ScreensaverConfig {
   weatherLatitude: number;
   weatherLongitude: number;
   sportsSwitchMinutes: number;
+  showQuickLinkEnabled: boolean;
+  showQuickLinkUrl: string;
 }
 
 const DEFAULT_CONFIG: ScreensaverConfig = {
@@ -17,7 +19,27 @@ const DEFAULT_CONFIG: ScreensaverConfig = {
   weatherLatitude: 51.1657,
   weatherLongitude: 10.4515,
   sportsSwitchMinutes: 5,
+  showQuickLinkEnabled: false,
+  showQuickLinkUrl: '',
 };
+
+function normalizeQuickLinkUrl(value: unknown): string {
+  const input = typeof value === 'string' ? value.trim() : '';
+  if (!input) {
+    return '';
+  }
+
+  try {
+    const parsed = new URL(input);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return '';
+    }
+
+    return parsed.toString();
+  } catch {
+    return '';
+  }
+}
 
 async function getConfig(): Promise<ScreensaverConfig> {
   try {
@@ -45,6 +67,12 @@ async function getConfig(): Promise<ScreensaverConfig> {
         Number.isFinite(parsed.sportsSwitchMinutes) && parsed.sportsSwitchMinutes! >= 1 && parsed.sportsSwitchMinutes! <= 60
           ? Math.round(parsed.sportsSwitchMinutes!)
           : DEFAULT_CONFIG.sportsSwitchMinutes,
+      showQuickLinkEnabled:
+        typeof parsed.showQuickLinkEnabled === 'boolean'
+          ? parsed.showQuickLinkEnabled
+          : DEFAULT_CONFIG.showQuickLinkEnabled,
+      showQuickLinkUrl:
+        normalizeQuickLinkUrl(parsed.showQuickLinkUrl) || DEFAULT_CONFIG.showQuickLinkUrl,
     };
   } catch {
     return DEFAULT_CONFIG;
@@ -110,6 +138,12 @@ export async function POST(request: Request) {
         ? body.weatherLocationName.trim().slice(0, 80)
         : currentConfig.weatherLocationName;
     const sportsSwitchMinutes = Number(body.sportsSwitchMinutes ?? currentConfig.sportsSwitchMinutes);
+    const showQuickLinkEnabled = Boolean(body.showQuickLinkEnabled);
+    const showQuickLinkUrlRaw =
+      typeof body.showQuickLinkUrl === 'string'
+        ? body.showQuickLinkUrl
+        : currentConfig.showQuickLinkUrl;
+    const showQuickLinkUrl = normalizeQuickLinkUrl(showQuickLinkUrlRaw);
 
     if (!Number.isFinite(timeoutMinutes) || timeoutMinutes < 1 || timeoutMinutes > 60) {
       return Response.json(
@@ -121,6 +155,13 @@ export async function POST(request: Request) {
     if (!Number.isFinite(sportsSwitchMinutes) || sportsSwitchMinutes < 1 || sportsSwitchMinutes > 60) {
       return Response.json(
         { error: 'sportsSwitchMinutes muss zwischen 1 und 60 liegen' },
+        { status: 400 }
+      );
+    }
+
+    if (showQuickLinkEnabled && !showQuickLinkUrl) {
+      return Response.json(
+        { error: 'showQuickLinkUrl muss eine gueltige http(s)-URL sein, wenn die Funktion aktiviert ist.' },
         { status: 400 }
       );
     }
@@ -142,6 +183,8 @@ export async function POST(request: Request) {
       weatherLatitude: geocoded.latitude,
       weatherLongitude: geocoded.longitude,
       sportsSwitchMinutes: Math.round(sportsSwitchMinutes),
+      showQuickLinkEnabled,
+      showQuickLinkUrl,
     };
 
     await saveConfig(config);
