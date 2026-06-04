@@ -18,7 +18,7 @@ const LETTER_ROWS = [
   ['y', 'x', 'c', 'v', 'b', 'n', 'm'],
 ] as const;
 const UMLAUT_KEYS = ['ä', 'ö', 'ü', 'ß'] as const;
-const SYMBOL_KEYS = ['-', ':'] as const;
+const SYMBOL_KEYS = ['-', ':', '!'] as const;
 
 const NUMBER_ROW = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'] as const;
 const PIN_PAD_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'clear', '0', 'backspace'] as const;
@@ -74,7 +74,7 @@ export function OnScreenKeyboard({
   const baseButtonClass =
     'min-h-12 rounded-lg border border-gray-300 bg-white px-3 text-lg font-semibold text-gray-900 transition-colors hover:bg-gray-100 active:bg-gray-200 dark:border-gray-600 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700';
   const compactButtonClass =
-    'min-h-9 rounded-lg border border-gray-300 bg-white px-2 text-base font-semibold text-gray-900 transition-colors hover:bg-gray-100 active:bg-gray-200 dark:border-gray-600 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700';
+    'min-h-8 rounded-md border border-gray-300 bg-white px-1 text-sm font-semibold text-gray-900 transition-colors hover:bg-gray-100 active:bg-gray-200 dark:border-gray-600 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700';
 
   const displayedValue = maskDisplay ? '•'.repeat(value.length) : value;
   const effectiveLabel = displayLabel ?? (numericOnly ? 'PIN-Eingabe' : 'Eingabe');
@@ -164,7 +164,7 @@ export function OnScreenKeyboard({
             </div>
           ))}
 
-          <div className="mb-2 mt-2 grid grid-cols-6 gap-2 px-8 sm:px-20">
+          <div className="mb-2 mt-2 grid grid-cols-7 gap-1">
             {specialKeys.map((char) => (
               <button
                 key={char}

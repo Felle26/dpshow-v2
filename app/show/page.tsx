@@ -49,9 +49,9 @@ export default function ShowPage() {
     setShowUpdateBanner(true);
   }, []);
 
-  const loadScreensaverConfig = async () => {
+  const loadScreensaverConfig = useCallback(async () => {
     try {
-      const res = await fetch('/api/screensaver-config');
+      const res = await fetch('/api/screensaver-config', { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         setScreensaverTimeout(data.timeoutMinutes);
@@ -61,7 +61,7 @@ export default function ShowPage() {
     } catch {
       // ignore
     }
-  };
+  }, []);
 
   const resetInactivityTimer = useCallback(() => {
     lastActivityRef.current = Date.now();
@@ -82,7 +82,15 @@ export default function ShowPage() {
 
   useEffect(() => {
     loadScreensaverConfig();
-  }, []);
+
+    const intervalId = window.setInterval(() => {
+      loadScreensaverConfig();
+    }, 3000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [loadScreensaverConfig]);
 
   useEffect(() => {
     if (!showQuickLinkEnabled || !showQuickLinkUrl) {
