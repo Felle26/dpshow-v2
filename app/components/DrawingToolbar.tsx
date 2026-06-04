@@ -119,25 +119,14 @@ export function DrawingToolbar({
               <span className="text-base font-semibold text-gray-700 dark:text-gray-300">Größe:</span>
               <button
                 type="button"
-                onClick={() => onFontSizeChange(24)}
+                onClick={() => onFontSizeChange(18)}
                 className={`min-h-11 rounded-lg px-4 text-sm font-semibold transition-colors ${
-                  fontSize === 24
+                  fontSize === 18
                     ? 'bg-blue-500 text-white'
                     : 'bg-gray-200 text-gray-900 hover:bg-gray-300 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600'
                 }`}
               >
-                24px
-              </button>
-              <button
-                type="button"
-                onClick={() => onFontSizeChange(32)}
-                className={`min-h-11 rounded-lg px-4 text-sm font-semibold transition-colors ${
-                  fontSize === 32
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-200 text-gray-900 hover:bg-gray-300 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600'
-                }`}
-              >
-                32px
+                18px
               </button>
               <button
                 type="button"
@@ -149,6 +138,17 @@ export function DrawingToolbar({
                 }`}
               >
                 40px
+              </button>
+              <button
+                type="button"
+                onClick={() => onFontSizeChange(52)}
+                className={`min-h-11 rounded-lg px-4 text-sm font-semibold transition-colors ${
+                  fontSize === 52
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-200 text-gray-900 hover:bg-gray-300 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600'
+                }`}
+              >
+                52px
               </button>
             </div>
           </div>

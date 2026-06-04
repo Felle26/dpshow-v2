@@ -395,13 +395,26 @@ export function PDFViewer({ pdfUrl, pdfName, onDrawingSaved }: PDFViewerProps) {
     };
   }, [editingEnabled]);
 
-  const handleUnlockClick = () => {
+  const handleUnlockClick = async () => {
     if (editingEnabled) {
       setEditingEnabled(false);
       setShowTextKeyboard(false);
       return;
     }
-    if (!passwordRequired) {
+
+    let requiresPassword = passwordRequired;
+    try {
+      const statusResponse = await fetch('/api/edit-password', { cache: 'no-store' });
+      if (statusResponse.ok) {
+        const statusData = await statusResponse.json();
+        requiresPassword = !!statusData.passwordSet;
+        setPasswordRequired(requiresPassword);
+      }
+    } catch {
+      // Bei Netz-/API-Fehler auf den zuletzt bekannten Status zurückfallen.
+    }
+
+    if (!requiresPassword) {
       setEditingEnabled(true);
       setViewMode('single');
       setCurrentPage(activePage);
