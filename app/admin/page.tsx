@@ -904,7 +904,7 @@ export default function AdminPage() {
                   Zeigt einen Umschalt-Button in der Show-Ansicht an. Der Button oeffnet/schliesst eine Webseite per iFrame.
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-                  Hinweis: Die Eingabe ueber die Bildschirmtastatur funktioniert nur, wenn eure CMS-Seite Nachrichten per postMessage (source: dpshow-osk) auswertet.
+                  Hinweis: Die Webseite wird nur eingebettet angezeigt. Direkte Eingabe in externe Login-Felder ist browserbedingt eingeschränkt.
                 </p>
                 <div className="flex flex-col gap-3">
                   <label className="inline-flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
