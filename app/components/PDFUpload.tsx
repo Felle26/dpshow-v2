@@ -20,9 +20,17 @@ type UploadResultFile = {
 
 interface PDFUploadProps {
   onUploadComplete?: () => void;
+  uploadUrl?: string;
+  showServerFiles?: boolean;
+  title?: string;
 }
 
-export default function PDFUpload({ onUploadComplete }: PDFUploadProps) {
+export default function PDFUpload({
+  onUploadComplete,
+  uploadUrl = "/api/upload-pdf",
+  showServerFiles = true,
+  title = "📄 PDF-Dateien verwalten",
+}: PDFUploadProps) {
   const router = useRouter();
   const lastChangedAtRef = useRef<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -42,9 +50,13 @@ export default function PDFUpload({ onUploadComplete }: PDFUploadProps) {
   };
 
   const loadServerFiles = async () => {
+    if (!showServerFiles) {
+      return;
+    }
+
     setIsLoadingFiles(true);
     try {
-      const response = await fetch("/api/upload-pdf", { cache: "no-store" });
+      const response = await fetch(uploadUrl, { cache: "no-store" });
       const data = await response.json();
 
       if (!response.ok) {
@@ -67,10 +79,18 @@ export default function PDFUpload({ onUploadComplete }: PDFUploadProps) {
   };
 
   useEffect(() => {
+    if (!showServerFiles) {
+      return;
+    }
+
     loadServerFiles();
-  }, []);
+  }, [showServerFiles, uploadUrl]);
 
   useEffect(() => {
+    if (!showServerFiles) {
+      return;
+    }
+
     let ignore = false;
 
     fetch("/api/upload-timestamp")
@@ -105,7 +125,7 @@ export default function PDFUpload({ onUploadComplete }: PDFUploadProps) {
       ignore = true;
       window.clearInterval(intervalId);
     };
-  }, []);
+  }, [showServerFiles]);
 
   const handleDeleteFile = async (filename: string) => {
     const confirmed = window.confirm(`Datei wirklich löschen?\n${filename}`);
@@ -116,7 +136,7 @@ export default function PDFUpload({ onUploadComplete }: PDFUploadProps) {
     setDeletingFile(filename);
     try {
       const response = await fetch(
-        `/api/upload-pdf?filename=${encodeURIComponent(filename)}`,
+        `${uploadUrl}?filename=${encodeURIComponent(filename)}`,
         {
           method: "DELETE",
         }
@@ -171,7 +191,7 @@ export default function PDFUpload({ onUploadComplete }: PDFUploadProps) {
     }
 
     try {
-      const response = await fetch("/api/upload-pdf", {
+      const response = await fetch(uploadUrl, {
         method: "POST",
         body: formData,
       });
@@ -192,7 +212,9 @@ export default function PDFUpload({ onUploadComplete }: PDFUploadProps) {
           text: `${filesToUpload.length} Datei(en) erfolgreich hochgeladen!`,
         });
         setSelectedFiles([]);
-        await loadServerFiles();
+        if (showServerFiles) {
+          await loadServerFiles();
+        }
         if (onUploadComplete) {
           onUploadComplete();
         }
@@ -266,10 +288,11 @@ export default function PDFUpload({ onUploadComplete }: PDFUploadProps) {
   return (
     <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-6">
       <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-        📄 PDF-Dateien verwalten
+        {title}
       </h3>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className={`grid grid-cols-1 ${showServerFiles ? "lg:grid-cols-3" : ""} gap-6`}>
+        {showServerFiles && (
         <aside className="lg:col-span-1 bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between mb-3">
             <h4 className="font-semibold text-gray-900 dark:text-white">Dateien auf dem Server</h4>
@@ -320,8 +343,9 @@ export default function PDFUpload({ onUploadComplete }: PDFUploadProps) {
             </ul>
           )}
         </aside>
+        )}
 
-        <div className="lg:col-span-2 space-y-4">
+        <div className={`${showServerFiles ? "lg:col-span-2" : ""} space-y-4`}>
           <input
             id="pdfInput"
             type="file"
