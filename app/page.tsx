@@ -32,6 +32,12 @@ export default function Home() {
           >
             🗂️ Bereiche
           </Link>
+          <Link
+            href="/belehrung"
+            className="px-8 py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg transition-colors"
+          >
+            🏅 Zertifikate
+          </Link>
         </div>
       </div>
     </div>
