@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import PDFUpload from '@/app/components/PDFUpload';
 import { PDFPreviewWithLayers } from '@/app/components/PDFPreviewWithLayers';
+import { PDFViewer } from '@/app/components/PDFViewer';
 
 interface Drawing {
   id: string;
@@ -18,6 +19,10 @@ interface Drawing {
 interface PDFFile {
   name: string;
   uploadDate: string;
+  released?: boolean;
+  archived?: boolean;
+  releasedAt?: string | null;
+  archivedAt?: string | null;
 }
 
 function extractKw(name: string): number | null {
@@ -86,13 +91,15 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [deletingDrawing, setDeletingDrawing] = useState<string | null>(null);
   const [deletingPdf, setDeletingPdf] = useState<string | null>(null);
+  const [updatingStatusFile, setUpdatingStatusFile] = useState<string | null>(null);
   const [deletingGroup, setDeletingGroup] = useState<string | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   const [selectedPdfForPreview, setSelectedPdfForPreview] = useState<string | null>(null);
+  const [selectedPdfForEdit, setSelectedPdfForEdit] = useState<string | null>(null);
   const [editPassword, setEditPassword] = useState('');
   const [isPasswordSet, setIsPasswordSet] = useState(false);
   const [passwordStatus, setPasswordStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  const [activeTab, setActiveTab] = useState<'upload' | 'dienstplaene' | 'optionen'>('upload');
+  const [activeTab, setActiveTab] = useState<'upload' | 'dienstplaene' | 'bearbeiten' | 'optionen'>('upload');
   const [screensaverTimeout, setScreensaverTimeout] = useState(5);
   const [sportsSwitchMinutes, setSportsSwitchMinutes] = useState(5);
   const [weatherLocationName, setWeatherLocationName] = useState('Deutschland');
@@ -268,6 +275,10 @@ export default function AdminPage() {
 
     return [...groups.entries()].map(([key, value]) => ({ key, ...value }));
   }, [sortedFiles, fileMeta]);
+
+  const editableFiles = React.useMemo(() => {
+    return sortedFiles.filter((file) => !file.archived);
+  }, [sortedFiles]);
 
   useEffect(() => {
     setExpandedGroups((prev) => {
@@ -450,6 +461,7 @@ export default function AdminPage() {
       });
 
       setSelectedPdfForPreview((prev) => (prev === fileName ? null : prev));
+      setSelectedPdfForEdit((prev) => (prev === fileName ? null : prev));
 
       alert('PDF gelöscht');
       router.refresh();
@@ -457,6 +469,50 @@ export default function AdminPage() {
       alert(`Fehler: ${err}`);
     } finally {
       setDeletingPdf(null);
+    }
+  };
+
+  const handleStatusAction = async (
+    fileName: string,
+    action: 'release' | 'unrelease' | 'archive' | 'restore'
+  ) => {
+    setUpdatingStatusFile(fileName);
+
+    try {
+      const response = await fetch('/api/files/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileName, action }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Status konnte nicht aktualisiert werden');
+      }
+
+      setFiles((prev) =>
+        prev.map((file) =>
+          file.name === fileName
+            ? {
+                ...file,
+                released: Boolean(data.status?.released),
+                archived: Boolean(data.status?.archived),
+                releasedAt:
+                  typeof data.status?.releasedAt === 'string' ? data.status.releasedAt : null,
+                archivedAt:
+                  typeof data.status?.archivedAt === 'string' ? data.status.archivedAt : null,
+              }
+            : file
+        )
+      );
+
+      if (action === 'archive') {
+        setSelectedPdfForEdit((prev) => (prev === fileName ? null : prev));
+      }
+    } catch (error) {
+      alert(`Fehler beim Aktualisieren des Status: ${error}`);
+    } finally {
+      setUpdatingStatusFile(null);
     }
   };
 
@@ -499,6 +555,9 @@ export default function AdminPage() {
           return newDrawings;
         });
         setSelectedPdfForPreview((prev) =>
+          group.files.map((f) => f.name).includes(prev ?? '') ? null : prev
+        );
+        setSelectedPdfForEdit((prev) =>
           group.files.map((f) => f.name).includes(prev ?? '') ? null : prev
         );
         alert(`${successCount} PDF(s) aus der Gruppe gelöscht`);
@@ -573,6 +632,16 @@ export default function AdminPage() {
             }`}
           >
             ⚙️ Optionen
+          </button>
+          <button
+            onClick={() => setActiveTab('bearbeiten')}
+            className={`px-4 py-3 font-semibold border-b-2 transition-colors ${
+              activeTab === 'bearbeiten'
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+            }`}
+          >
+            ✏️ Bearbeiten
           </button>
         </div>
 
@@ -655,8 +724,57 @@ export default function AdminPage() {
                                       <p className="text-xs text-gray-600 dark:text-gray-400">
                                         Hochgeladen: {new Date(file.uploadDate).toLocaleString('de-DE')}
                                       </p>
+                                      <div className="mt-2 flex flex-wrap gap-2">
+                                        {file.archived ? (
+                                          <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                                            Archiviert
+                                          </span>
+                                        ) : file.released ? (
+                                          <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200">
+                                            Freigegeben (Show)
+                                          </span>
+                                        ) : (
+                                          <span className="rounded-full bg-slate-200 px-2 py-1 text-xs font-semibold text-slate-700 dark:bg-slate-700 dark:text-slate-200">
+                                            Nicht freigegeben
+                                          </span>
+                                        )}
+                                      </div>
                                     </div>
                                     <div className="flex gap-2 flex-wrap">
+                                      {file.archived ? (
+                                        <button
+                                          onClick={() => handleStatusAction(file.name, 'restore')}
+                                          disabled={updatingStatusFile === file.name}
+                                          className="px-3 py-2 bg-amber-500 hover:bg-amber-600 disabled:bg-amber-300 dark:disabled:bg-amber-900 text-white rounded-lg transition-colors font-semibold text-sm whitespace-nowrap"
+                                        >
+                                          {updatingStatusFile === file.name ? 'Wird aktualisiert...' : '📂 Wiederherstellen'}
+                                        </button>
+                                      ) : file.released ? (
+                                        <button
+                                          onClick={() => handleStatusAction(file.name, 'unrelease')}
+                                          disabled={updatingStatusFile === file.name}
+                                          className="px-3 py-2 bg-slate-500 hover:bg-slate-600 disabled:bg-slate-300 dark:disabled:bg-slate-800 text-white rounded-lg transition-colors font-semibold text-sm whitespace-nowrap"
+                                        >
+                                          {updatingStatusFile === file.name ? 'Wird aktualisiert...' : '⏸️ Freigabe aufheben'}
+                                        </button>
+                                      ) : (
+                                        <button
+                                          onClick={() => handleStatusAction(file.name, 'release')}
+                                          disabled={updatingStatusFile === file.name}
+                                          className="px-3 py-2 bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-300 dark:disabled:bg-emerald-900 text-white rounded-lg transition-colors font-semibold text-sm whitespace-nowrap"
+                                        >
+                                          {updatingStatusFile === file.name ? 'Wird aktualisiert...' : '✅ Freigeben'}
+                                        </button>
+                                      )}
+                                      {!file.archived && (
+                                        <button
+                                          onClick={() => handleStatusAction(file.name, 'archive')}
+                                          disabled={updatingStatusFile === file.name}
+                                          className="px-3 py-2 bg-amber-600 hover:bg-amber-700 disabled:bg-amber-300 dark:disabled:bg-amber-900 text-white rounded-lg transition-colors font-semibold text-sm whitespace-nowrap"
+                                        >
+                                          {updatingStatusFile === file.name ? 'Wird aktualisiert...' : '🗃️ Archivieren'}
+                                        </button>
+                                      )}
                                       <button
                                         onClick={() =>
                                           setSelectedPdfForPreview(
@@ -743,6 +861,64 @@ export default function AdminPage() {
                   />
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Bearbeiten Tab */}
+          {activeTab === 'bearbeiten' && (
+            <div className="flex-1 flex gap-6 min-h-0">
+              <section className="w-96 shrink-0 min-h-0 bg-white dark:bg-slate-900 rounded-lg shadow-lg p-4 flex flex-col">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                  ✏️ Dienstplan bearbeiten
+                </h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                  Nutzt denselben Bearbeitungsmodus wie im Show-Bereich.
+                </p>
+
+                <div className="admin-scrollbar flex-1 min-h-0 overflow-y-auto pr-1 space-y-2">
+                  {loading ? (
+                    <p className="text-gray-600 dark:text-gray-400">Lädt...</p>
+                  ) : editableFiles.length === 0 ? (
+                    <p className="text-gray-600 dark:text-gray-400">
+                      Keine nicht-archivierten Dienstpläne verfügbar.
+                    </p>
+                  ) : (
+                    editableFiles.map((file) => (
+                      <button
+                        key={file.name}
+                        onClick={() => setSelectedPdfForEdit(file.name)}
+                        className={`w-full rounded-lg border px-3 py-3 text-left transition-colors ${
+                          selectedPdfForEdit === file.name
+                            ? 'border-blue-500 bg-blue-50 dark:border-blue-500 dark:bg-blue-900/20'
+                            : 'border-gray-300 bg-white hover:bg-gray-50 dark:border-gray-700 dark:bg-slate-800 dark:hover:bg-slate-700'
+                        }`}
+                      >
+                        <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">{file.name}</p>
+                        <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
+                          {new Date(file.uploadDate).toLocaleString('de-DE')}
+                        </p>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </section>
+
+              <section className="flex-1 min-h-0 bg-white dark:bg-slate-900 rounded-lg shadow-lg overflow-hidden border border-gray-200 dark:border-gray-800">
+                {selectedPdfForEdit ? (
+                  <PDFViewer
+                    pdfUrl={`/dienstplan-uploads/${encodeURIComponent(selectedPdfForEdit)}`}
+                    pdfName={selectedPdfForEdit}
+                    onDrawingSaved={() => loadData()}
+                  />
+                ) : (
+                  <div className="h-full flex items-center justify-center text-gray-600 dark:text-gray-400">
+                    <div className="text-center">
+                      <p className="mb-3 text-3xl">🖊️</p>
+                      <p className="text-lg font-medium">Bitte links einen Dienstplan auswählen.</p>
+                    </div>
+                  </div>
+                )}
+              </section>
             </div>
           )}
 

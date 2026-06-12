@@ -1,0 +1,23 @@
+{
+  "Plan KW 21 Wilsdruff Markt.pdf": {
+    "released": false,
+    "archived": true,
+    "releasedAt": null,
+    "archivedAt": "2026-06-12T09:29:41.824Z",
+    "updatedAt": "2026-06-12T09:29:41.824Z"
+  },
+  "Plan KW 21 Cossebauder Str.pdf": {
+    "released": false,
+    "archived": true,
+    "releasedAt": null,
+    "archivedAt": "2026-06-12T09:29:43.858Z",
+    "updatedAt": "2026-06-12T09:29:43.858Z"
+  },
+  "Plan KW 17 Bäckerei Brot Brötchen Ofen.pdf": {
+    "released": true,
+    "archived": false,
+    "releasedAt": "2026-06-12T09:32:24.316Z",
+    "archivedAt": null,
+    "updatedAt": "2026-06-12T09:32:24.316Z"
+  }
+}

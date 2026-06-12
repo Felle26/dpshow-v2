@@ -1,5 +1,22 @@
 {
+  "/admin/page": "app/admin/page.js",
   "/api/belehrung-files/[fileName]/route": "app/api/belehrung-files/[fileName]/route.js",
+  "/api/drawings/file/[fileName]/route": "app/api/drawings/file/[fileName]/route.js",
+  "/api/drawings/list/route": "app/api/drawings/list/route.js",
+  "/api/drawings/save/route": "app/api/drawings/save/route.js",
+  "/api/edit-password/route": "app/api/edit-password/route.js",
+  "/api/files/[fileName]/route": "app/api/files/[fileName]/route.js",
+  "/api/files/route": "app/api/files/route.js",
+  "/api/files/status/route": "app/api/files/status/route.js",
+  "/api/news/route": "app/api/news/route.js",
+  "/api/screensaver-config/route": "app/api/screensaver-config/route.js",
+  "/api/sports/route": "app/api/sports/route.js",
   "/api/upload-belehrung/route": "app/api/upload-belehrung/route.js",
-  "/belehrung/page": "app/belehrung/page.js"
+  "/api/upload-pdf/route": "app/api/upload-pdf/route.js",
+  "/api/upload-timestamp/route": "app/api/upload-timestamp/route.js",
+  "/api/weather/route": "app/api/weather/route.js",
+  "/belehrung/page": "app/belehrung/page.js",
+  "/dienstplan-uploads/[fileName]/route": "app/dienstplan-uploads/[fileName]/route.js",
+  "/page": "app/page.js",
+  "/show/page": "app/show/page.js"
 }

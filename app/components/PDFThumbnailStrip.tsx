@@ -10,6 +10,8 @@ if (typeof window !== 'undefined') {
 interface PDFFile {
   name: string;
   uploadDate: string;
+  released?: boolean;
+  archived?: boolean;
 }
 
 interface PDFThumbnailStripProps {
@@ -212,7 +214,7 @@ export function PDFThumbnailStrip({ onPDFSelect, selectedPdfName, onNewFilesDete
     const loadFiles = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/api/files');
+        const response = await fetch('/api/files?scope=show', { cache: 'no-store' });
         if (!response.ok) throw new Error('Fehler beim Laden der Dateien');
 
         const data = await response.json();

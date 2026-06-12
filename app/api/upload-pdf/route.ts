@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile, mkdir, readFile, readdir, stat, unlink } from "fs/promises";
+import { writeFile, mkdir, readdir, stat, unlink } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";
 import { PDFParse } from "pdf-parse";
@@ -9,27 +9,13 @@ import {
   extractNamingFromText,
   type ExtractedPdfNaming,
 } from "@/lib/pdf-naming";
+import {
+  readDienstplanStatusMap,
+  touchLastChangedTimestamp,
+  writeDienstplanStatusMap,
+} from "@/lib/dienstplan-status";
 
 const UPLOAD_DIR = join(process.cwd(), "storage/uploads");
-const DATA_DIR = join(process.cwd(), "data");
-const CONFIG_FILE = join(DATA_DIR, "config.json");
-
-async function writeLastUploadTimestamp() {
-  try {
-    let config: Record<string, string> = {};
-    try {
-      const content = await readFile(CONFIG_FILE, "utf-8");
-      config = JSON.parse(content);
-    } catch {
-      // Config existiert noch nicht
-    }
-    config.lastChangedAt = new Date().toISOString();
-    await mkdir(DATA_DIR, { recursive: true });
-    await writeFile(CONFIG_FILE, JSON.stringify(config, null, 2), "utf-8");
-  } catch (err) {
-    console.error("Fehler beim Schreiben des Upload-Timestamps:", err);
-  }
-}
 
 import { pathToFileURL } from "url";
 
@@ -164,7 +150,7 @@ export async function POST(request: NextRequest) {
       const fileBuffer = Buffer.from(bytes);
       await writeFile(filepath, fileBuffer);
 
-      await writeLastUploadTimestamp();
+      await touchLastChangedTimestamp();
 
       uploadedFiles.push({
         name: file.name,
@@ -219,7 +205,13 @@ export async function DELETE(request: NextRequest) {
 
     await unlink(filePath);
 
-    await writeLastUploadTimestamp();
+    const statusMap = await readDienstplanStatusMap();
+    if (statusMap[safeName]) {
+      delete statusMap[safeName];
+      await writeDienstplanStatusMap(statusMap);
+    }
+
+    await touchLastChangedTimestamp();
 
     return NextResponse.json({
       success: true,
