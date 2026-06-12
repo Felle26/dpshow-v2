@@ -267,29 +267,38 @@ export function PDFThumbnailStrip({ onPDFSelect, selectedPdfName, onNewFilesDete
 
     loadFiles();
 
-    // Initialen Timestamp merken
-    fetch('/api/upload-timestamp')
-      .then((r) => r.json())
-      .then((data) => { lastUploadAtRef.current = data.lastChangedAt ?? null; })
-      .catch(() => {});
+    const syncUploadTimestamp = () => {
+      if (document.visibilityState !== 'visible') {
+        return;
+      }
 
-    // Alle 5 Sekunden prüfen ob sich die Dateiliste geändert hat
-    const intervalId = setInterval(() => {
       fetch('/api/upload-timestamp')
         .then((r) => r.json())
         .then((data) => {
           const ts: string | null = data.lastChangedAt ?? null;
+          if (lastUploadAtRef.current === null) {
+            lastUploadAtRef.current = ts;
+            return;
+          }
+
           if (ts && ts !== lastUploadAtRef.current) {
             lastUploadAtRef.current = ts;
             if (onNewFilesDetected) onNewFilesDetected();
           }
         })
         .catch(() => {});
-    }, 5_000);
+    };
+
+    syncUploadTimestamp();
+
+    // Alle 30 Sekunden prüfen, ob sich die Dateiliste geändert hat.
+    const intervalId = setInterval(syncUploadTimestamp, 30_000);
+    document.addEventListener('visibilitychange', syncUploadTimestamp);
 
     return () => {
       ignore = true;
       clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', syncUploadTimestamp);
     };
   }, []);
 

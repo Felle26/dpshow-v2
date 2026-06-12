@@ -81,14 +81,20 @@ export default function ShowPage() {
   }, [resetInactivityTimer]);
 
   useEffect(() => {
-    loadScreensaverConfig();
+    const refreshConfigIfVisible = () => {
+      if (document.visibilityState === 'visible') {
+        void loadScreensaverConfig();
+      }
+    };
 
-    const intervalId = window.setInterval(() => {
-      loadScreensaverConfig();
-    }, 3000);
+    refreshConfigIfVisible();
+
+    const intervalId = window.setInterval(refreshConfigIfVisible, 60_000);
+    document.addEventListener('visibilitychange', refreshConfigIfVisible);
 
     return () => {
       window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', refreshConfigIfVisible);
     };
   }, [loadScreensaverConfig]);
 

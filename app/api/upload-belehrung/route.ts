@@ -373,6 +373,11 @@ async function inferDisplayNameFromPdf(filePath: string, filename: string): Prom
   }
 }
 
+function looksLikeSlugName(value: string): boolean {
+  const normalized = value.trim();
+  return /^[a-z0-9_-]+$/i.test(normalized) && !/\s/.test(normalized);
+}
+
 function buildPersonToken(raw: string): string {
   const withoutTitles = raw
     .replace(/\b(herr|frau|mr|mrs|ms)\b/gi, " ")
@@ -531,10 +536,10 @@ type BelehrungListItem = {
   modifiedAt: string;
   url: string;
   extractedName: string;
-  extractedTopic: string;
+  extractedTopic: BelehrungTheme;
 };
 
-function extractDisplayMeta(filename: string): { extractedName: string; extractedTopic: string } {
+function extractDisplayMeta(filename: string): { extractedName: string; extractedTopic: BelehrungTheme } {
   const baseName = stripPdfExtension(filename).trim();
   const normalized = baseName.replace(/\s+/g, " ");
 
@@ -582,8 +587,25 @@ export async function GET() {
           const fileStats = await stat(filePath);
           const displayMeta = extractDisplayMeta(filename);
           const storedMeta = await readStoredMeta(filename);
-          const extractedName = storedMeta?.displayName ?? (await inferDisplayNameFromPdf(filePath, filename));
+          const parsedDisplayName = await inferDisplayNameFromPdf(filePath, filename);
+
+          const extractedName =
+            !storedMeta?.displayName || looksLikeSlugName(storedMeta.displayName)
+              ? parsedDisplayName
+              : storedMeta.displayName;
+
           const extractedTopic = storedMeta?.topic ?? displayMeta.extractedTopic;
+
+          if (
+            !storedMeta ||
+            storedMeta.displayName !== extractedName ||
+            storedMeta.topic !== extractedTopic
+          ) {
+            await writeStoredMeta(filename, {
+              displayName: extractedName,
+              topic: extractedTopic,
+            });
+          }
 
           return {
             name: filename,
